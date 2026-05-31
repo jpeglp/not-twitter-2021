@@ -10,20 +10,35 @@ type RouteHistoryUpdate = {
   browserTraversal?: boolean;
 };
 
+function getConfiguredBasePath(): string {
+  const rawBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? '';
+  const basePath = rawBasePath.replace(/^\/+|\/+$/g, '');
+
+  return basePath ? `/${basePath}` : '';
+}
+
+function stripBasePath(pathname: string): string {
+  const basePath = getConfiguredBasePath();
+
+  if (!basePath) return pathname;
+  if (pathname === basePath) return '/';
+  if (pathname.startsWith(`${basePath}/`))
+    return pathname.slice(basePath.length) || '/';
+
+  return pathname;
+}
+
 function normalizeRoutePath(path: string | null | undefined): string | null {
   if (!path) return null;
 
   try {
-    if (/^https?:\/\//i.test(path)) {
-      const url = new URL(path);
+    const url = new URL(path, 'https://not-twitter.local');
+    const pathname = stripBasePath(url.pathname).replace(/\/+$/g, '') || '/';
 
-      return `${url.pathname}${url.search}${url.hash}` || '/';
-    }
+    return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
-
-  return path || '/';
 }
 
 function compactRouteHistory(history: readonly string[]): string[] {
