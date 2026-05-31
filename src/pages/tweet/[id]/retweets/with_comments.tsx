@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router';
 import { getTweetRouteId } from '@lib/static-routes';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { SEO } from '@components/common/seo';
 import { PublicTweetLayout } from '@components/layout/common-layout';
 import { MainContainer } from '@components/home/main-container';
@@ -14,7 +15,8 @@ function getRouteParam(value: string | string[] | undefined): string | null {
 }
 
 export default function TweetQuoteTweets(): JSX.Element {
-  const { asPath, query: routeQuery, back } = useRouter();
+  const { asPath, query: routeQuery } = useRouter();
+  const routeBack = useRouteBack();
   const tweetId =
     getRouteParam(routeQuery.tweetId) ??
     getRouteParam(routeQuery.id) ??
@@ -23,7 +25,7 @@ export default function TweetQuoteTweets(): JSX.Element {
   return (
     <MainContainer className='!pb-[1280px]'>
       <SEO title='Quote Tweets / Not Twitter' />
-      <MainHeader useActionButton title='Quote Tweets' action={back} />
+      <MainHeader useActionButton title='Quote Tweets' action={routeBack} />
       {tweetId ? (
         <QuoteTweetsFeed tweetId={tweetId} />
       ) : (

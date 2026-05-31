@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getUser, subscribeBackend } from '@lib/atproto/backend';
 import { UserContextProvider } from '@lib/context/user-context';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { getProfileRouteId } from '@lib/static-routes';
 import { SEO } from '@components/common/seo';
 import { MainContainer } from '@components/home/main-container';
@@ -13,9 +14,9 @@ import type { User } from '@lib/types/user';
 export function UserDataLayout({ children }: LayoutProps): JSX.Element {
   const {
     asPath,
-    query: { id },
-    back
+    query: { id }
   } = useRouter();
+  const routeBack = useRouteBack();
   const routeId = (Array.isArray(id) ? id[0] : id) ?? getProfileRouteId(asPath);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,7 @@ export function UserDataLayout({ children }: LayoutProps): JSX.Element {
     <UserContextProvider value={{ user, loading }}>
       {!user && !loading && <SEO title='User not found / Not Twitter' />}
       <MainContainer>
-        <MainHeader useActionButton action={back}>
+        <MainHeader useActionButton action={routeBack}>
           <UserHeader />
         </MainHeader>
         {children}

@@ -9,6 +9,7 @@ import {
 } from '@lib/atproto/backend';
 import { isPlural } from '@lib/utils';
 import { getTweetRouteId } from '@lib/static-routes';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { PublicTweetLayout } from '@components/layout/common-layout';
 import { MainContainer } from '@components/home/main-container';
 import { MainHeader } from '@components/home/main-header';
@@ -77,7 +78,8 @@ function TweetNotFound(): JSX.Element {
 }
 
 export default function TweetId(): JSX.Element {
-  const { asPath, query: routeQuery, back } = useRouter();
+  const { asPath, query: routeQuery } = useRouter();
+  const routeBack = useRouteBack();
   const tweetId =
     getRouteParam(routeQuery.tweetId) ??
     getRouteParam(routeQuery.id) ??
@@ -216,7 +218,7 @@ export default function TweetId(): JSX.Element {
       <MainHeader
         useActionButton
         title={hasThread ? 'Thread' : 'Tweet'}
-        action={back}
+        action={routeBack}
       />
       <section>
         {tweetLoading ? (

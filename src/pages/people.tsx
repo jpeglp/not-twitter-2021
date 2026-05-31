@@ -1,7 +1,7 @@
-import { useRouter } from 'next/router';
 import { motion } from 'framer-motion';
 import { where } from '@lib/atproto/store';
 import { useAuth } from '@lib/context/auth-context';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { usersCollection } from '@lib/atproto/collections';
 import { useInfiniteScroll } from '@lib/hooks/useInfiniteScroll';
 import {
@@ -28,12 +28,12 @@ export default function People(): JSX.Element {
     { marginBottom: 500 }
   );
 
-  const { back } = useRouter();
+  const routeBack = useRouteBack();
 
   return (
     <MainContainer>
       <SEO title='People / Not Twitter' />
-      <MainHeader useActionButton title='People' action={back} />
+      <MainHeader useActionButton title='People' action={routeBack} />
       <section>
         {loading ? (
           <Loading className='mt-5' />

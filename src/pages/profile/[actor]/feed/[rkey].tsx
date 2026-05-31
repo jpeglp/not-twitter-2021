@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { getFeedGeneratorPage } from '@lib/atproto/backend';
 import { formatAtprotoDisplayIdentifier } from '@lib/atproto/identity';
 import { useTheme } from '@lib/context/theme-context';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { formatNumber } from '@lib/date';
 import { getFeedRouteParams } from '@lib/static-routes';
 import {
@@ -34,7 +35,8 @@ function getRouteParam(value: string | string[] | undefined): string | null {
 
 export default function FeedPage(): JSX.Element {
   const { hideBskySocialSuffix } = useTheme();
-  const { asPath, back, isReady, query } = useRouter();
+  const { asPath, isReady, query } = useRouter();
+  const routeBack = useRouteBack();
   const staticParams = getFeedRouteParams(asPath);
   const actor = getRouteParam(query.actor) ?? staticParams?.actor ?? null;
   const rkey = getRouteParam(query.rkey) ?? staticParams?.rkey ?? null;
@@ -90,7 +92,7 @@ export default function FeedPage(): JSX.Element {
         title={`${title} / Not Twitter`}
         description={data?.description ?? undefined}
       />
-      <MainHeader useActionButton title={title} action={back} />
+      <MainHeader useActionButton title={title} action={routeBack} />
       {!data && !error ? (
         <Loading className='mt-5' />
       ) : error ? (

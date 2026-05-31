@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import cn from 'clsx';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
@@ -17,6 +16,7 @@ import {
 import { formatAtprotoDisplayIdentifier } from '@lib/atproto/identity';
 import { useTheme } from '@lib/context/theme-context';
 import { formatNumber } from '@lib/date';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { HomeLayout, ProtectedLayout } from '@components/layout/common-layout';
 import { MainLayout } from '@components/layout/main-layout';
 import { SEO } from '@components/common/seo';
@@ -353,7 +353,7 @@ function SearchFeedRow({
 }
 
 export default function Feeds(): JSX.Element {
-  const { back } = useRouter();
+  const routeBack = useRouteBack();
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [orderedFeeds, setOrderedFeeds] = useState<FeedBrowserFeed[]>([]);
@@ -565,7 +565,7 @@ export default function Feeds(): JSX.Element {
             <Button
               className='dark-bg-tab group relative p-2 hover:bg-light-primary/10 active:bg-light-primary/20 dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
               aria-label='Back'
-              onClick={back}
+              onClick={routeBack}
             >
               <HeroIcon className='h-5 w-5' iconName='ArrowLeftIcon' />
               <ToolTip tip='Back' />

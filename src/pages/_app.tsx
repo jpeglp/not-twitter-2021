@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { AuthContextProvider } from '@lib/context/auth-context';
 import { ThemeContextProvider } from '@lib/context/theme-context';
+import { RouteHistoryRecorder } from '@lib/hooks/useRouteBack';
 import {
   ensureServerConnectionFetchWatcher,
   SERVER_CONNECTION_PROBLEM_EVENT
@@ -60,8 +61,10 @@ export default function App({
       <AppHead />
       <AuthContextProvider>
         <ThemeContextProvider>
-          {getLayout(<Component {...pageProps} />)}
-          <ServerConnectionModalLoader />
+          <RouteHistoryRecorder>
+            {getLayout(<Component {...pageProps} />)}
+            <ServerConnectionModalLoader />
+          </RouteHistoryRecorder>
         </ThemeContextProvider>
       </AuthContextProvider>
     </>

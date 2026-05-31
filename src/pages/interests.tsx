@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/router';
 import cn from 'clsx';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
@@ -8,6 +7,7 @@ import {
   updateInterestsSetting
 } from '@lib/atproto/backend';
 import { useAuth } from '@lib/context/auth-context';
+import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { HomeLayout, ProtectedLayout } from '@components/layout/common-layout';
 import { MainLayout } from '@components/layout/main-layout';
 import { SEO } from '@components/common/seo';
@@ -75,7 +75,7 @@ function formatInterestLabel(value: string): string {
 }
 
 function InterestsHeader(): JSX.Element {
-  const { back } = useRouter();
+  const routeBack = useRouteBack();
 
   return (
     <header className='hover-animation sticky top-0 z-20 border-b border-light-border bg-main-background/90 backdrop-blur-md dark:border-dark-border'>
@@ -84,7 +84,7 @@ function InterestsHeader(): JSX.Element {
           className='dark-bg-tab group relative p-2 hover:bg-light-primary/10 active:bg-light-primary/20
                      dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
           aria-label='Back'
-          onClick={back}
+          onClick={routeBack}
         >
           <CustomIcon className='h-5 w-5' iconName='TwitterArrowLeftIcon' />
           <ToolTip tip='Back' />
