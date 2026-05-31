@@ -17,7 +17,7 @@ type AsideTrendsProps = {
 };
 
 export function AsideTrends({ inTrendsPage }: AsideTrendsProps): JSX.Element {
-  const { data, loading } = useTrends(1, inTrendsPage ? 25 : 10, {
+  const { data, loading } = useTrends(1, inTrendsPage ? 25 : 5, {
     refreshInterval: 30000
   });
 
