@@ -110,7 +110,7 @@ export function FollowButton({
   if (!user)
     return (
       <Button
-        className='self-start border bg-light-primary px-4 py-1.5 font-bold text-white hover:bg-light-primary/90
+        className='self-start border bg-light-primary px-4 py-1.5 font-bold text-main-accent hover:bg-main-accent/90
                    focus-visible:bg-light-primary/90 active:bg-light-border/75 dark:bg-light-border
                    dark:text-light-primary dark:hover:bg-light-border/90 dark:focus-visible:bg-light-border/90
                    dark:active:bg-light-border/75'
@@ -189,10 +189,7 @@ export function FollowButton({
         </Button>
       ) : (
         <Button
-          className='self-start border bg-light-primary px-4 py-1.5 font-bold text-white hover:bg-light-primary/90 
-                     focus-visible:bg-light-primary/90 active:bg-light-border/75 dark:bg-light-border 
-                     dark:text-light-primary dark:hover:bg-light-border/90 dark:focus-visible:bg-light-border/90 
-                     dark:active:bg-light-border/75'
+          className=' self-start border bg-light-white px-4 py-1.5 font-bold text-main-accent hover:bg-main-accent/90 hover:text-dark-primary focus-visible:bg-light-primary/90 active:bg-light-border/75 dark:bg-light-border dark:text-light-primary dark:hover:bg-light-border/90 dark:focus-visible:bg-light-border/90 dark:active:bg-light-border/75'
           aria-busy={updatingFollow}
           onClick={preventBubbling(handleFollow)}
         >
