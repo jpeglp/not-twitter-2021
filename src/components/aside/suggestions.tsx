@@ -29,7 +29,7 @@ export function Suggestions(): JSX.Element {
       usersCollection,
       where(documentId(), '>=', randomSeed),
       orderBy(documentId()),
-      limit(2)
+      limit(3)
     ),
     { allowNull: true }
   );
