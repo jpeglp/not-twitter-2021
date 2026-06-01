@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Not Twitter",
-  "short_name": "Not Twitter",
+  "name": "Twitter",
+  "short_name": "Twitter",
   "description": "A Bluesky-powered Twitter-style client.",
   "display": "standalone",
   "start_url": "/",
