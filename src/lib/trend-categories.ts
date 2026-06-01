@@ -81,7 +81,7 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'blackpink': 'Music',
   'kpop': 'Music',
   'spotify wrapped': 'Music',
-  'grammys': 'Music',
+  'grammys': 'Music'
 };
 
 const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
@@ -226,7 +226,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'video game',
       'xbox',
       'esports',
-      'gta 6',
+      'gta 6'
     ]
   },
   {
@@ -271,7 +271,8 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'market',
       'stock',
       'stocks',
-      'tariff'
+      'tariff',
+      'tariffs'
     ]
   },
   {
