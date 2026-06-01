@@ -38,7 +38,7 @@ export function Suggestions(): JSX.Element {
     return <></>;
 
   return (
-    <section className='hover-animation rounded-2xl bg-main-sidebar-background'>
+    <section className='border-y border-light-border dark:border-dark-border hover-animation rounded-2xl bg-main-sidebar-background'>
       {adminLoading || suggestionsLoading ? (
         <Loading className='flex h-52 items-center justify-center p-4' />
       ) : (

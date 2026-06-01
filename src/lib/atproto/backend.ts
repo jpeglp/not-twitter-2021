@@ -6391,8 +6391,8 @@ export async function getFeedGeneratorPage(
   };
 }
 
-const DISCOVER_HOME_FEED_ACTOR = 'bsky.app';
-const DISCOVER_HOME_FEED_RKEY = 'whats-hot';
+const DISCOVER_HOME_FEED_ACTOR = 'spacecowboy17.bsky.social';
+const DISCOVER_HOME_FEED_RKEY = 'for-you';
 export const DISCOVER_HOME_FEED_HREF = `/profile/${DISCOVER_HOME_FEED_ACTOR}/feed/${DISCOVER_HOME_FEED_RKEY}`;
 let discoverHomeFeedUriPromise: Promise<string> | null = null;
 
