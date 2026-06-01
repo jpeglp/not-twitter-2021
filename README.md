@@ -2,7 +2,7 @@
 
 This is Not Twitter. 
 
-https://jpeglp.github.io/not-twitter/
+https://jpeglp.github.io/not-twitter-2021/
 
 It looks suspiciously like Twitter, scrolls suspiciously like Twitter, and may
 even trigger the same muscle memory as Twitter. But legally, spiritually, and
