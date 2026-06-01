@@ -37,12 +37,10 @@ export function AsideTrends({ inTrendsPage }: AsideTrendsProps): JSX.Element {
           className={cn('inner:px-4 inner:py-3', inTrendsPage && 'mt-0.5')}
           {...variants}
         >
-          <div>
             {!inTrendsPage && (
        
             <h2 className='text-xl font-extrabold'>What&apos;s happening</h2>
           )}
-          </div>
 
           {trends.map(
             ({
@@ -56,7 +54,7 @@ export function AsideTrends({ inTrendsPage }: AsideTrendsProps): JSX.Element {
               url
             }) => (
               <Link href={url} key={`${kind}-${rank}-${query}`}>
-                <a className='hover-animation accent-tab hover-card relative flex flex-col gap-0.5'>
+                <a className='border-y border-light-border dark:border-dark-border hover-animation accent-tab hover-card relative flex flex-col'>
                   <p className='text-sm text-light-secondary dark:text-dark-secondary'>
                     {kind === 'topic'
                       ? category
