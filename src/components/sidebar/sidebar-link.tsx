@@ -70,7 +70,7 @@ export function SidebarLink({
               />
             )}
           </span>
-          <p className='hidden h-7 items-center leading-7 xl:flex'>
+          <p className='hidden h-7 items-center leading-7 text-xl font-bold xl:flex'>
             {linkName}
           </p>
         </div>

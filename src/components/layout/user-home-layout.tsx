@@ -185,7 +185,7 @@ function ActivityNotificationButton({
             return (
               <button
                 className='flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-light-primary/5
-                           focus-visible:bg-light-primary/5 focus-visible:outline-none
+                           focus-visible:bg-main-primary/5 focus-visible:outline-none
                            dark:hover:bg-dark-primary/5 dark:focus-visible:bg-dark-primary/5'
                 type='button'
                 key={category}
@@ -194,7 +194,7 @@ function ActivityNotificationButton({
               >
                 <span
                   className='flex h-5 w-5 shrink-0 items-center justify-center rounded border
-                             border-light-secondary text-main-accent dark:border-dark-secondary'
+                             border-main-accent text-main-accent dark:border-main-accent'
                   aria-hidden='true'
                 >
                   {checked && (
@@ -203,6 +203,7 @@ function ActivityNotificationButton({
                       iconName='TwitterCheckIcon'
                     />
                   )}
+
                 </span>
                 <span className='font-bold'>
                   {activityNotificationTitles[category]}
@@ -309,7 +310,7 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
                   <div className='flex gap-2 self-start'>
                     {showMessageButton && (
                       <Button
-                        className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+                        className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-light-primary/10 active:bg-light-main-accent/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-main-accent/10 dark:active:bg-dark-primary/20'
                         onClick={handleMessageClick}
                       >
                         <CustomIcon
@@ -390,7 +391,7 @@ function BlockedProfileState({
     >
       <div className='mx-auto flex w-full max-w-[360px] flex-col gap-3'>
         <p className='text-[31px] font-extrabold leading-9'>{title}</p>
-        <p className='text-[15px] leading-5 text-light-secondary dark:text-dark-secondary'>
+        <p className='text-[15px] leading-9 text-light-secondary dark:text-dark-secondary'>
           {description}
         </p>
       </div>
