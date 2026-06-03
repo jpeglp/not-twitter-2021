@@ -222,6 +222,8 @@ function getArticleParagraphs(text: string): string[] {
     .filter(Boolean);
 }
 
+const standardSiteInlinePreviewLength = 220;
+
 function getArticleExcerpt(text: string, maxLength = 420): string {
   const normalizedText = stripReaderMarkdownPreamble(text)
     .replace(/\s+/g, ' ')
@@ -1445,9 +1447,10 @@ function StandardSiteArticleBody({
   const excerpt = useMemo(
     () =>
       getArticleExcerpt(
-        article.textContent || getArticleTextFromBlocks(blocks)
+        article.textContent || getArticleTextFromBlocks(blocks),
+        fullArticleReader ? 420 : standardSiteInlinePreviewLength
       ),
-    [article.textContent, blocks]
+    [article.textContent, blocks, fullArticleReader]
   );
 
   useEffect(() => {
@@ -1509,7 +1512,7 @@ function StandardSiteArticleBody({
           ))}
         </div>
       ) : (
-        <p className='article-display-font-size text-light-primary dark:text-dark-primary'>
+        <p className='article-display-font-size line-clamp-4 text-light-primary dark:text-dark-primary'>
           {excerpt}
         </p>
       )}
