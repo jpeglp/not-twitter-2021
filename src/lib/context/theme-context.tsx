@@ -10,15 +10,20 @@ import {
 } from 'react';
 import { useAuth } from './auth-context';
 import type { ReactNode, ChangeEvent } from 'react';
-import type { Theme, Accent } from '@lib/types/theme';
+import type { Theme, Accent, FontSize } from '@lib/types/theme';
+
+type DarkTheme = Extract<Theme, 'dim' | 'dark'>;
 
 type ThemeContext = {
   theme: Theme;
   accent: Accent;
+  fontSize: FontSize;
   hideBskySocialSuffix: boolean;
   squareProfilePictures: boolean;
   changeTheme: ({ target: { value } }: ChangeEvent<HTMLInputElement>) => void;
   changeAccent: ({ target: { value } }: ChangeEvent<HTMLInputElement>) => void;
+  changeFontSize: (fontSize: FontSize) => void;
+  toggleColorScheme: () => void;
   toggleHideBskySocialSuffix: () => void;
   toggleSquareProfilePictures: () => void;
 };
@@ -29,13 +34,48 @@ type ThemeContextProviderProps = {
   children: ReactNode;
 };
 
+const lastDarkThemeKey = 'lastDarkTheme';
+const fontSizeKey = 'fontSize';
+const fontSizeRootPixels: Record<FontSize, string> = {
+  xs: '14px',
+  sm: '15px',
+  md: '16px',
+  lg: '18px',
+  xl: '20px'
+};
+const fontSizeScales: Record<FontSize, number> = {
+  xs: 0.9,
+  sm: 0.96,
+  md: 1,
+  lg: 1.08,
+  xl: 1.16
+};
+
+function isTheme(value: string | null): value is Theme {
+  return value === 'light' || value === 'dim' || value === 'dark';
+}
+
+function isDarkTheme(value: string | null): value is DarkTheme {
+  return value === 'dim' || value === 'dark';
+}
+
+function isFontSize(value: string | null): value is FontSize {
+  return (
+    value === 'xs' ||
+    value === 'sm' ||
+    value === 'md' ||
+    value === 'lg' ||
+    value === 'xl'
+  );
+}
+
 function setInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
 
-  const savedTheme = localStorage.getItem('theme') as Theme | null;
+  const savedTheme = localStorage.getItem('theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  return savedTheme ?? (prefersDark ? 'dark' : 'light');
+  return isTheme(savedTheme) ? savedTheme : prefersDark ? 'dark' : 'light';
 }
 
 function setInitialAccent(): Accent {
@@ -44,6 +84,14 @@ function setInitialAccent(): Accent {
   const savedAccent = localStorage.getItem('accent') as Accent | null;
 
   return savedAccent ?? 'blue';
+}
+
+function setInitialFontSize(): FontSize {
+  if (typeof window === 'undefined') return 'md';
+
+  const savedFontSize = localStorage.getItem(fontSizeKey);
+
+  return isFontSize(savedFontSize) ? savedFontSize : 'md';
 }
 
 function setInitialHideBskySocialSuffix(): boolean {
@@ -58,11 +106,27 @@ function setInitialSquareProfilePictures(): boolean {
   return localStorage.getItem('squareProfilePictures') === 'true';
 }
 
+function setInitialLastDarkTheme(): DarkTheme {
+  if (typeof window === 'undefined') return 'dark';
+
+  const savedLastDarkTheme = localStorage.getItem(lastDarkThemeKey);
+  const savedTheme = localStorage.getItem('theme');
+
+  if (isDarkTheme(savedLastDarkTheme)) return savedLastDarkTheme;
+  if (isDarkTheme(savedTheme)) return savedTheme;
+
+  return 'dark';
+}
+
 export function ThemeContextProvider({
   children
 }: ThemeContextProviderProps): JSX.Element {
   const [theme, setTheme] = useState<Theme>(setInitialTheme);
   const [accent, setAccent] = useState<Accent>(setInitialAccent);
+  const [fontSize, setFontSize] = useState<FontSize>(setInitialFontSize);
+  const [lastDarkTheme, setLastDarkTheme] = useState<DarkTheme>(
+    setInitialLastDarkTheme
+  );
   const [hideBskySocialSuffix, setHideBskySocialSuffix] = useState(
     setInitialHideBskySocialSuffix
   );
@@ -120,6 +184,13 @@ export function ThemeContextProvider({
   }, [userId, theme]);
 
   useEffect(() => {
+    if (!isDarkTheme(theme)) return;
+
+    setLastDarkTheme(theme);
+    localStorage.setItem(lastDarkThemeKey, theme);
+  }, [theme]);
+
+  useEffect(() => {
     const flipAccent = (accent: Accent): NodeJS.Timeout | undefined => {
       const root = document.documentElement;
 
@@ -140,6 +211,30 @@ export function ThemeContextProvider({
     const timeoutId = flipAccent(accent);
     return () => clearTimeout(timeoutId);
   }, [userId, accent]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const rootFontSize = fontSizeRootPixels[fontSize];
+    const scale = fontSizeScales[fontSize];
+
+    root.style.fontSize = rootFontSize;
+    root.style.setProperty('--not-twitter-font-size', rootFontSize);
+    root.style.setProperty('--display-font-scale', `${scale}`);
+    root.style.setProperty('--tweet-font-size', `${15 * scale}px`);
+    root.style.setProperty('--tweet-line-height', `${20 * scale}px`);
+    root.style.setProperty('--tweet-detail-font-size', `${23 * scale}px`);
+    root.style.setProperty('--tweet-detail-line-height', `${28 * scale}px`);
+    root.style.setProperty('--quoted-tweet-font-size', `${15 * scale}px`);
+    root.style.setProperty('--quoted-tweet-line-height', `${20 * scale}px`);
+    root.style.setProperty('--article-font-size', `${17 * scale}px`);
+    root.style.setProperty('--article-line-height', `${24 * scale}px`);
+    root.style.setProperty('--article-heading-font-size', `${20 * scale}px`);
+    root.style.setProperty('--article-heading-line-height', `${24 * scale}px`);
+    root.style.setProperty('--article-code-font-size', `${14 * scale}px`);
+    root.style.setProperty('--article-code-line-height', `${20 * scale}px`);
+    root.dataset.fontSize = fontSize;
+    localStorage.setItem(fontSizeKey, fontSize);
+  }, [fontSize]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -175,6 +270,19 @@ export function ThemeContextProvider({
     []
   );
 
+  const changeFontSize = useCallback(
+    (nextFontSize: FontSize): void => setFontSize(nextFontSize),
+    []
+  );
+
+  const toggleColorScheme = useCallback(
+    (): void =>
+      setTheme((currentTheme) =>
+        currentTheme === 'light' ? lastDarkTheme : 'light'
+      ),
+    [lastDarkTheme]
+  );
+
   const toggleHideBskySocialSuffix = useCallback(
     (): void => setHideBskySocialSuffix((currentValue) => !currentValue),
     []
@@ -189,20 +297,26 @@ export function ThemeContextProvider({
     () => ({
       theme,
       accent,
+      fontSize,
       hideBskySocialSuffix,
       squareProfilePictures,
       changeTheme,
       changeAccent,
+      changeFontSize,
+      toggleColorScheme,
       toggleHideBskySocialSuffix,
       toggleSquareProfilePictures
     }),
     [
       accent,
       changeAccent,
+      changeFontSize,
       changeTheme,
+      fontSize,
       hideBskySocialSuffix,
       squareProfilePictures,
       theme,
+      toggleColorScheme,
       toggleHideBskySocialSuffix,
       toggleSquareProfilePictures
     ]

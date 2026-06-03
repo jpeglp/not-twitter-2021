@@ -2,6 +2,7 @@ import { useModal } from '@lib/hooks/useModal';
 import { NextImage } from '@components/ui/next-image';
 import { CustomIcon } from '@components/ui/custom-icon';
 import { Button } from '@components/ui/button';
+import { TwemojiScope } from '@components/ui/twemoji-scope';
 import { BlueskySignInModal } from './bluesky-sign-in-modal';
 
 export function LoginMain(): JSX.Element {
@@ -14,7 +15,10 @@ export function LoginMain(): JSX.Element {
   return (
     <>
       <BlueskySignInModal open={signInOpen} closeModal={closeSignInModal} />
-      <main className='grid text-main-primary lg:grid-cols-[1fr,45vw]'>
+      <TwemojiScope
+        as='main'
+        className='grid text-main-primary lg:grid-cols-[1fr,45vw]'
+      >
         <div className='relative hidden items-center justify-center  lg:flex'>
           <NextImage
             imgClassName='object-cover'
@@ -75,7 +79,7 @@ export function LoginMain(): JSX.Element {
             </Button>
           </div>
         </div>
-      </main>
+      </TwemojiScope>
     </>
   );
 }

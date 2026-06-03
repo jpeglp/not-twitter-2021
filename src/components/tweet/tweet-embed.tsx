@@ -235,7 +235,7 @@ function getArticleExcerpt(text: string, maxLength = 420): string {
 }
 
 type StandardSiteArticleBlock =
-  | { type: 'paragraph' | 'list' | 'code'; text: string }
+  | { type: 'paragraph' | 'list' | 'code' | 'blockquote'; text: string }
   | { type: 'heading'; text: string; level: number }
   | { type: 'image'; url?: string; alt?: string; raw?: unknown };
 
@@ -263,6 +263,8 @@ function stringLooksLikeMarkdown(text: string): boolean {
     /(^|\n)#{1,6}\s+/.test(text) ||
     /(^|\n)!\[[^\]]*]\(/.test(text) ||
     /(^|\n)[-*+]\s+/.test(text) ||
+    /(^|\n)>\s+/.test(text) ||
+    /\[[^\]]+]\([^)]+\)/.test(text) ||
     /\*\*[^*]+\*\*/.test(text)
   );
 }
@@ -291,15 +293,6 @@ function getHtmlTextFromContent(content: unknown): string | null {
   const html = getContentString(content, ['html', 'text', 'content', 'value']);
 
   return html && type.toLowerCase().includes('html') ? html : null;
-}
-
-function stripMarkdownInline(text: string): string {
-  return text
-    .replace(/!?\[([^\]]+)]\([^)]+\)/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .trim();
 }
 
 function getMarkdownImageBlock(line: string): StandardSiteArticleBlock | null {
@@ -352,6 +345,7 @@ function getBlocksFromMarkdown(
   const lines = stripReaderMarkdownPreamble(markdown).split('\n');
   const blocks: StandardSiteArticleBlock[] = [];
   const paragraphLines: string[] = [];
+  const quoteLines: string[] = [];
   const codeLines: string[] = [];
   let inCode = false;
 
@@ -360,6 +354,13 @@ function getBlocksFromMarkdown(
 
     paragraphLines.length = 0;
     if (text) blocks.push({ type: 'paragraph', text });
+  };
+
+  const flushQuote = (): void => {
+    const text = quoteLines.join(' ').replace(/\s+/g, ' ').trim();
+
+    quoteLines.length = 0;
+    if (text) blocks.push({ type: 'blockquote', text });
   };
 
   for (const line of lines) {
@@ -372,6 +373,7 @@ function getBlocksFromMarkdown(
         inCode = false;
       } else {
         flushParagraph();
+        flushQuote();
         inCode = true;
       }
       continue;
@@ -386,20 +388,31 @@ function getBlocksFromMarkdown(
 
     if (imageBlock) {
       flushParagraph();
+      flushQuote();
       blocks.push(imageBlock);
       continue;
     }
 
     if (/!\[[^\]]*]\([^)]+\)/.test(trimmed)) {
       flushParagraph();
+      flushQuote();
       if (appendBlocksFromMarkdownInlineImages(trimmed, blocks)) continue;
+    }
+
+    const quoteMatch = trimmed.match(/^>\s?(.*)$/);
+
+    if (quoteMatch) {
+      flushParagraph();
+      quoteLines.push(quoteMatch[1]);
+      continue;
     }
 
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
 
     if (headingMatch) {
       flushParagraph();
-      const text = stripMarkdownInline(headingMatch[2]);
+      flushQuote();
+      const text = headingMatch[2].trim();
 
       if (!(blocks.length === 0 && text === articleTitle))
         blocks.push({
@@ -414,6 +427,7 @@ function getBlocksFromMarkdown(
 
     if (listMatch) {
       flushParagraph();
+      flushQuote();
       blocks.push({
         type: 'list',
         text: `${listMatch[1].endsWith('.') ? listMatch[1] : '•'} ${
@@ -423,11 +437,16 @@ function getBlocksFromMarkdown(
       continue;
     }
 
-    if (!trimmed) flushParagraph();
-    else paragraphLines.push(trimmed);
+    if (!trimmed) {
+      flushParagraph();
+      flushQuote();
+    } else {
+      paragraphLines.push(trimmed);
+    }
   }
 
   flushParagraph();
+  flushQuote();
   if (codeLines.length)
     blocks.push({ type: 'code', text: codeLines.join('\n') });
 
@@ -473,7 +492,7 @@ function getBlocksFromHtmlText(
     html;
   const blocks: StandardSiteArticleBlock[] = [];
   const tokenRegex =
-    /<\s*(h[1-6]|p|li|pre|code)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>|<\s*img\b([^>]*)>/gi;
+    /<\s*(h[1-6]|p|li|blockquote|pre|code)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>|<\s*img\b([^>]*)>/gi;
   let token: RegExpExecArray | null = tokenRegex.exec(fragment);
 
   while (token) {
@@ -491,7 +510,7 @@ function getBlocksFromHtmlText(
 
     if (normalizedTag.startsWith('h')) {
       const text = normalizeInlineText(
-        htmlFragmentToMarkdownishText(innerHtml)
+        htmlFragmentToMarkdownishText(innerHtml, baseUrl)
       );
 
       if (text && !(blocks.length === 0 && text === articleTitle))
@@ -504,6 +523,12 @@ function getBlocksFromHtmlText(
       const text = normalizeInlineText(stripHtmlTags(innerHtml));
 
       if (text) blocks.push({ type: 'code', text });
+    } else if (normalizedTag === 'blockquote') {
+      const text = normalizeInlineText(
+        htmlFragmentToMarkdownishText(innerHtml, baseUrl)
+      );
+
+      if (text) blocks.push({ type: 'blockquote', text });
     } else
       appendBlocksFromHtmlFragment(innerHtml, blocks, {
         baseUrl,
@@ -551,6 +576,14 @@ function appendBlocksFromHtmlNode(
     return;
   }
 
+  if (tag === 'blockquote') {
+    appendBlocksFromHtmlChildren(Array.from(element.childNodes), blocks, {
+      baseUrl,
+      blockquote: true
+    });
+    return;
+  }
+
   if (tag === 'pre' || tag === 'code') {
     const text = element.textContent?.trim();
 
@@ -575,10 +608,12 @@ function appendBlocksFromHtmlChildren(
   blocks: StandardSiteArticleBlock[],
   {
     baseUrl,
-    listItem
+    listItem,
+    blockquote
   }: {
     baseUrl?: string;
     listItem?: boolean;
+    blockquote?: boolean;
   }
 ): void {
   const buffer: string[] = [];
@@ -590,7 +625,7 @@ function appendBlocksFromHtmlChildren(
     if (!text) return;
 
     blocks.push({
-      type: listItem ? 'list' : 'paragraph',
+      type: blockquote ? 'blockquote' : listItem ? 'list' : 'paragraph',
       text: listItem ? `• ${text}` : text
     });
   };
@@ -619,12 +654,25 @@ function appendBlocksFromHtmlChildren(
       return;
     }
 
+    if (tag === 'a') {
+      const href = resolveArticleAssetUrl(
+        element.getAttribute('href'),
+        baseUrl
+      );
+      if (href) buffer.push('[');
+      element.childNodes.forEach(visit);
+      if (href) buffer.push(`](${href})`);
+      return;
+    }
+
     if (tag === 'strong' || tag === 'b') buffer.push('**');
+    else if (tag === 'em' || tag === 'i') buffer.push('_');
     else if (tag === 'code') buffer.push('`');
 
     element.childNodes.forEach(visit);
 
     if (tag === 'strong' || tag === 'b') buffer.push('**');
+    else if (tag === 'em' || tag === 'i') buffer.push('_');
     else if (tag === 'code') buffer.push('`');
   };
 
@@ -648,7 +696,9 @@ function appendBlocksFromHtmlFragment(
   let image: RegExpExecArray | null = imageRegex.exec(html);
 
   const appendText = (value: string): void => {
-    const text = normalizeInlineText(htmlFragmentToMarkdownishText(value));
+    const text = normalizeInlineText(
+      htmlFragmentToMarkdownishText(value, baseUrl)
+    );
 
     if (!text) return;
     blocks.push({
@@ -727,11 +777,20 @@ function resolveArticleAssetUrl(
   }
 }
 
-function htmlFragmentToMarkdownishText(html: string): string {
+function htmlFragmentToMarkdownishText(html: string, baseUrl?: string): string {
   return decodeHtmlEntities(
     stripHtmlTags(
       html
+        .replace(
+          /<\s*a\b[^>]*href=["']?([^"'>\s]+)["']?[^>]*>([\s\S]*?)<\/\s*a\s*>/gi,
+          (_match, href: string, label: string) => {
+            const resolved = resolveArticleAssetUrl(href, baseUrl) ?? href;
+
+            return `[${stripHtmlTags(label)}](${resolved})`;
+          }
+        )
         .replace(/<\s*(strong|b)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>/gi, '**$2**')
+        .replace(/<\s*(em|i)\b[^>]*>([\s\S]*?)<\/\s*\1\s*>/gi, '_$2_')
         .replace(/<\s*code\b[^>]*>([\s\S]*?)<\/\s*code\s*>/gi, '`$1`')
         .replace(/<\s*br\s*\/?\s*>/gi, '\n')
     )
@@ -756,7 +815,9 @@ function normalizeInlineText(text: string): string {
 }
 
 function hasRichArticleBlocks(blocks: StandardSiteArticleBlock[]): boolean {
-  return blocks.some(({ type }) => type === 'heading' || type === 'image');
+  return blocks.some(({ type }) =>
+    ['heading', 'image', 'blockquote', 'code'].includes(type)
+  );
 }
 
 function getStandardSiteArticleHtmlProxyUrl(url: string): string | null {
@@ -945,29 +1006,65 @@ function getStandardSiteArticleBlocks(
   }));
 }
 
+function getArticleTextFromBlocks(blocks: StandardSiteArticleBlock[]): string {
+  return blocks
+    .map((block) => (block.type === 'image' ? null : block.text))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 function renderRichInlineText(text: string): ReactNode[] {
-  const strippedText = text.replace(/!?\[([^\]]+)]\([^)]+\)/g, '$1');
-  const parts = strippedText.split(/(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`)/g);
+  const nodes: ReactNode[] = [];
+  const pattern =
+    /(!?\[([^\]]+)]\(([^)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|`([^`]+)`|\*([^*]+)\*|_([^_]+)_)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null = pattern.exec(text);
 
-  return parts.filter(Boolean).map((part, index) => {
-    if (
-      (part.startsWith('**') && part.endsWith('**')) ||
-      (part.startsWith('__') && part.endsWith('__'))
-    )
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
+  while (match) {
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
 
-    if (part.startsWith('`') && part.endsWith('`'))
-      return (
+    const [token, , linkLabel, linkHref, boldA, boldB, code, italicA, italicB] =
+      match;
+
+    if (linkLabel && linkHref) {
+      if (token.startsWith('!')) {
+        nodes.push(linkLabel);
+      } else {
+        nodes.push(
+          <a
+            className='text-main-accent hover:underline focus-visible:underline'
+            href={linkHref}
+            key={`${match.index}-${linkHref}`}
+            rel='noopener noreferrer'
+            target='_blank'
+            onClick={(event): void => event.stopPropagation()}
+          >
+            {renderRichInlineText(linkLabel)}
+          </a>
+        );
+      }
+    } else if (boldA || boldB) {
+      nodes.push(<strong key={match.index}>{boldA ?? boldB}</strong>);
+    } else if (code) {
+      nodes.push(
         <code
           className='dark:bg-dark-hover rounded bg-light-line-reply px-1 py-0.5 font-mono text-[0.92em]'
-          key={index}
+          key={match.index}
         >
-          {part.slice(1, -1)}
+          {code}
         </code>
       );
+    } else if (italicA || italicB) {
+      nodes.push(<em key={match.index}>{italicA ?? italicB}</em>);
+    }
 
-    return part;
-  });
+    cursor = match.index + token.length;
+    match = pattern.exec(text);
+  }
+
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+
+  return nodes.filter(Boolean);
 }
 
 function useStandardSiteArticleReader(card: TweetCard): {
@@ -1281,7 +1378,7 @@ function TweetStandardSiteArticleCard({
       <div className='min-w-0 px-4 py-3'>
         <EnhancedLinkCardSourceRow card={card} includeReadingTime={false} />
         <div className='flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-          <h2 className='min-w-0 flex-1 basis-[240px] text-[22px] font-extrabold leading-7 text-light-primary dark:text-dark-primary'>
+          <h2 className='article-heading-display-font-size min-w-0 flex-1 basis-[240px] font-extrabold text-light-primary dark:text-dark-primary'>
             <span className='line-clamp-3'>{visibleTitle}</span>
           </h2>
           {readingTimeLabel && (
@@ -1291,16 +1388,16 @@ function TweetStandardSiteArticleCard({
           )}
         </div>
         {visibleDescription && (
-          <p className='line-clamp-3 mt-1 text-[15px] leading-5 text-light-secondary dark:text-dark-secondary'>
+          <p className='tweet-display-font-size line-clamp-3 mt-1 text-light-secondary dark:text-dark-secondary'>
             {visibleDescription}
           </p>
         )}
         <button
-          className='mt-2 inline-flex items-center gap-1 text-[15px] font-bold leading-5 text-main-accent outline-none hover:underline focus-visible:underline'
+          className='tweet-display-font-size mt-2 inline-flex items-center gap-1 font-bold text-main-accent outline-none hover:underline focus-visible:underline'
           type='button'
           onClick={onOpenArticle}
         >
-          Read article
+          Read on website
           <HeroIcon className='h-4 w-4' iconName='ArrowTopRightOnSquareIcon' />
         </button>
         {fullArticleReader && (
@@ -1335,7 +1432,7 @@ function StandardSiteArticleBody({
 }: {
   article: StandardSiteArticle;
   fullArticleReader: boolean;
-}): JSX.Element {
+}): JSX.Element | null {
   const articleBlocks = useMemo(
     () => getStandardSiteArticleBlocks(article),
     [article]
@@ -1343,36 +1440,66 @@ function StandardSiteArticleBody({
   const [htmlBlocks, setHtmlBlocks] = useState<
     StandardSiteArticleBlock[] | null
   >(null);
+  const [htmlLoading, setHtmlLoading] = useState(false);
   const blocks = htmlBlocks ?? articleBlocks;
   const excerpt = useMemo(
-    () => getArticleExcerpt(article.textContent),
-    [article.textContent]
+    () =>
+      getArticleExcerpt(
+        article.textContent || getArticleTextFromBlocks(blocks)
+      ),
+    [article.textContent, blocks]
   );
 
   useEffect(() => {
     let canceled = false;
+    const shouldFetchHTML =
+      !hasRichArticleBlocks(articleBlocks) &&
+      (fullArticleReader ||
+        articleBlocks.length === 0 ||
+        article.textContent.trim().length === 0);
 
     setHtmlBlocks(null);
+    setHtmlLoading(shouldFetchHTML);
 
-    if (!fullArticleReader || hasRichArticleBlocks(articleBlocks)) return;
+    if (!shouldFetchHTML) return;
 
-    void fetchStandardSiteArticleHTML(article.url).then((html) => {
-      if (canceled || !html) return;
+    void fetchStandardSiteArticleHTML(article.url)
+      .then((html) => {
+        if (canceled || !html) return;
 
-      const parsedBlocks = getBlocksFromHtml(html, article.title, article.url);
+        const parsedBlocks = getBlocksFromHtml(
+          html,
+          article.title,
+          article.url
+        );
 
-      if (hasRichArticleBlocks(parsedBlocks)) setHtmlBlocks(parsedBlocks);
-    });
+        if (parsedBlocks.length > 0) setHtmlBlocks(parsedBlocks);
+      })
+      .finally(() => {
+        if (!canceled) setHtmlLoading(false);
+      });
 
     return () => {
       canceled = true;
     };
-  }, [article.url, article.title, articleBlocks, fullArticleReader]);
+  }, [
+    article.url,
+    article.title,
+    article.textContent,
+    articleBlocks,
+    fullArticleReader
+  ]);
+
+  if (htmlLoading && blocks.length === 0)
+    return <StandardSiteArticleSkeleton />;
+  if (fullArticleReader && blocks.length === 0) return null;
+  if (!fullArticleReader && !excerpt)
+    return htmlLoading ? <StandardSiteArticleSkeleton /> : null;
 
   return (
     <div className='mt-4 border-t border-light-border pt-4 dark:border-dark-border'>
       {fullArticleReader ? (
-        <div className='space-y-3 text-[17px] leading-6 text-light-primary dark:text-dark-primary'>
+        <div className='article-display-font-size space-y-3 text-light-primary dark:text-dark-primary'>
           {blocks.map((block, index) => (
             <StandardSiteArticleBlockView
               article={article}
@@ -1382,7 +1509,7 @@ function StandardSiteArticleBody({
           ))}
         </div>
       ) : (
-        <p className='text-[17px] leading-6 text-light-primary dark:text-dark-primary'>
+        <p className='article-display-font-size text-light-primary dark:text-dark-primary'>
           {excerpt}
         </p>
       )}
@@ -1417,7 +1544,7 @@ function StandardSiteArticleBlockView({
     const Heading = block.level <= 2 ? 'h3' : 'h4';
 
     return (
-      <Heading className='pt-1 text-[20px] font-extrabold leading-6 text-light-primary dark:text-dark-primary'>
+      <Heading className='article-heading-display-font-size pt-1 font-extrabold text-light-primary dark:text-dark-primary'>
         {renderRichInlineText(block.text)}
       </Heading>
     );
@@ -1425,15 +1552,22 @@ function StandardSiteArticleBlockView({
 
   if (block.type === 'code')
     return (
-      <pre className='dark:bg-dark-hover overflow-x-auto rounded-xl bg-light-line-reply p-3 text-[14px] leading-5'>
+      <pre className='article-code-display-font-size dark:bg-dark-hover overflow-x-auto rounded-xl bg-light-line-reply p-3'>
         <code>{block.text}</code>
       </pre>
+    );
+
+  if (block.type === 'blockquote')
+    return (
+      <blockquote className='article-display-font-size border-l-4 border-main-accent/70 pl-4 italic text-light-secondary dark:text-dark-secondary'>
+        {renderRichInlineText(block.text)}
+      </blockquote>
     );
 
   return (
     <p
       className={cn(
-        'text-[17px] leading-6 text-light-primary dark:text-dark-primary',
+        'article-display-font-size text-light-primary dark:text-dark-primary',
         block.type === 'list' && 'pl-2'
       )}
     >
@@ -1568,7 +1702,7 @@ function TweetLinkCard({
             )}
             <p
               className={cn(
-                'text-[15px] leading-5 text-light-primary dark:text-dark-primary',
+                'tweet-display-font-size text-light-primary dark:text-dark-primary',
                 enhanced ? 'line-clamp-2' : 'truncate'
               )}
             >
@@ -1601,7 +1735,7 @@ function TweetLinkCard({
         )}
         <p
           className={cn(
-            'text-[15px] leading-5 text-light-primary dark:text-dark-primary',
+            'tweet-display-font-size text-light-primary dark:text-dark-primary',
             enhanced ? 'line-clamp-2' : 'truncate'
           )}
         >
@@ -1690,7 +1824,21 @@ function getQuoteMediaGridClassName(
   return '';
 }
 
-function QuotedTweetMediaThumbnail({
+function getQuotedTweetMediaGridStyle(
+  media: ImageData | undefined,
+  previewCount: number
+): CSSProperties | undefined {
+  if (previewCount !== 1 || !media?.aspectRatio) return undefined;
+
+  const { width, height } = media.aspectRatio;
+  if (!width || !height || width <= 0 || height <= 0) return undefined;
+
+  const ratio = Math.min(Math.max(width / height, 4 / 5), 16 / 9);
+
+  return { aspectRatio: `${ratio} / 1` };
+}
+
+function QuotedTweetMediaGrid({
   media
 }: {
   media: ImagesPreview;
@@ -1701,11 +1849,18 @@ function QuotedTweetMediaThumbnail({
   const isVideo = !!firstMedia && isVideoLikeMedia(firstMedia);
   const isGif = !!firstMedia && isGifLikeMedia(firstMedia);
   const showBadge = previewCount === 1 && (isVideo || isGif);
+  const singleMedia = previewCount === 1;
 
   return (
     <div
-      className='dark:bg-dark-hover relative grid h-[110px] w-[110px] shrink-0
-                 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-xl bg-light-line-reply'
+      className={cn(
+        `dark:bg-dark-hover relative mt-2 grid w-full overflow-hidden rounded-xl border
+         border-light-border bg-light-line-reply dark:border-dark-border`,
+        singleMedia
+          ? 'aspect-[16/9] max-h-[360px] min-h-[150px] grid-cols-1 grid-rows-1'
+          : 'aspect-[16/9] min-h-[150px] grid-cols-2 grid-rows-2 gap-0.5'
+      )}
+      style={getQuotedTweetMediaGridStyle(firstMedia, previewCount)}
     >
       {visibleMedia.map((item, index) => {
         const thumbnailSrc = getMediaThumbnailSrc(item);
@@ -1714,7 +1869,7 @@ function QuotedTweetMediaThumbnail({
           <div
             className={cn(
               'relative min-h-0 min-w-0 overflow-hidden',
-              getQuoteMediaGridClassName(index, previewCount)
+              !singleMedia && getQuoteMediaGridClassName(index, previewCount)
             )}
             key={`${item.id}-${index}`}
           >
@@ -1894,31 +2049,27 @@ function QuotedTweetCard({
         {compactMedia ? (
           <>
             <QuotedTweetHeader quotedTweet={quotedTweet} />
-            <div className='mt-2 flex min-w-0 gap-3'>
-              <QuotedTweetMediaThumbnail media={compactMedia} />
-              <div className='min-w-0 flex-1'>
-                {quotedTweet.text && (
-                  <TweetText
-                    className='text-[15px] leading-5 text-light-primary dark:text-dark-primary'
-                    style={getQuotedTweetTextClampStyle()}
-                    text={quotedTweet.text}
-                  />
-                )}
-                {quotedTweet.text && (
-                  <TweetTranslation
-                    className='text-[14px] leading-5'
-                    text={quotedTweet.text}
-                    langs={quotedTweet.langs}
-                  />
-                )}
-              </div>
-            </div>
+            {quotedTweet.text && (
+              <TweetText
+                className='quoted-tweet-display-font-size mt-1 text-light-primary dark:text-dark-primary'
+                style={getQuotedTweetTextClampStyle()}
+                text={quotedTweet.text}
+              />
+            )}
+            {quotedTweet.text && (
+              <TweetTranslation
+                className='text-[14px] leading-5'
+                text={quotedTweet.text}
+                langs={quotedTweet.langs}
+              />
+            )}
+            <QuotedTweetMediaGrid media={compactMedia} />
           </>
         ) : quotedTweet.text ? (
           <>
             <QuotedTweetHeader quotedTweet={quotedTweet} />
             <TweetText
-              className='mt-1 text-[15px] leading-5 text-light-primary dark:text-dark-primary'
+              className='quoted-tweet-display-font-size mt-1 text-light-primary dark:text-dark-primary'
               style={getQuotedTweetTextClampStyle(expandPreview)}
               text={quotedTweet.text}
             />

@@ -610,6 +610,9 @@ function MentionActionButton({
   const [optimisticBookmarked, setOptimisticBookmarked] = useState(
     !!(tweet && userBookmarks?.some(({ id }) => id === tweet.id))
   );
+  const [optimisticQuoteCount, setOptimisticQuoteCount] = useState(
+    tweet?.userQuotes ?? 0
+  );
   const [updatingLike, setUpdatingLike] = useState(false);
   const [updatingRetweet, setUpdatingRetweet] = useState(false);
   const [updatingBookmark, setUpdatingBookmark] = useState(false);
@@ -622,6 +625,14 @@ function MentionActionButton({
   useEffect(() => {
     setOptimisticBookmarked(bookmarked);
   }, [bookmarked]);
+
+  useEffect(() => {
+    setOptimisticQuoteCount(tweet?.userQuotes ?? 0);
+  }, [tweet?.id, tweet?.userQuotes]);
+
+  const handleQuoteTweetSent = useCallback((): void => {
+    setOptimisticQuoteCount((count) => count + 1);
+  }, []);
 
   const handleLike = useCallback(async (): Promise<void> => {
     if (!tweet || !viewerId || updatingLike) return;
@@ -714,7 +725,7 @@ function MentionActionButton({
     action.kind === 'reply'
       ? tweet?.userReplies ?? 0
       : action.kind === 'retweet'
-      ? optimisticRetweets.length
+      ? optimisticRetweets.length + optimisticQuoteCount
       : action.kind === 'like'
       ? optimisticLikes.length
       : 0;
@@ -765,6 +776,7 @@ function MentionActionButton({
         retweeted={retweeted}
         quoteTweet={tweet ? { ...tweet, user: tweetUser } : null}
         disabled={updatingRetweet || !tweet}
+        onQuoteTweetSent={handleQuoteTweetSent}
       />
     );
 
@@ -832,8 +844,6 @@ function TweetNotificationRow({
   const targetHref = getTargetHref(latestNotification, viewerUsername);
   const quotedTweet =
     reason === 'quote' ? group.tweet?.quotedTweet ?? null : null;
-  const hideQuotedTweetMedia =
-    !!group.tweet?.images?.length || !!group.tweet?.card;
   const router = useRouter();
   const {
     open: replyOpen,
@@ -970,7 +980,6 @@ function TweetNotificationRow({
                 <TweetEmbed
                   card={null}
                   quotedTweet={quotedTweet}
-                  hideQuotedTweetMedia={hideQuotedTweetMedia}
                 />
               </div>
             )}

@@ -2,6 +2,8 @@ import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu } from '@headlessui/react';
 import cn from 'clsx';
+import { useTheme } from '@lib/context/theme-context';
+import { useLongPress } from '@lib/hooks/useLongPress';
 import { useModal } from '@lib/hooks/useModal';
 import { Modal } from '@components/modal/modal';
 import { DisplayModal } from '@components/modal/display-modal';
@@ -23,7 +25,14 @@ export const variants: Variants = {
 
 export function MoreSettings(): JSX.Element {
   const { asPath } = useRouter();
+  const { theme, toggleColorScheme } = useTheme();
   const { open, openModal, closeModal } = useModal();
+  const themeShortcutHandlers = useLongPress({
+    onLongPress: openModal,
+    onPress: toggleColorScheme
+  });
+  const themeShortcutLabel = theme === 'light' ? 'Dark mode' : 'Light mode';
+  const themeShortcutIcon = theme === 'light' ? 'MoonIcon' : 'SunIcon';
 
   return (
     <>
@@ -114,6 +123,21 @@ export function MoreSettings(): JSX.Element {
                           <HeroIcon iconName='QuestionMarkCircleIcon' />
                           Help center
                         </MenuLink>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }): JSX.Element => (
+                        <Button
+                          className={cn(
+                            'flex w-full gap-3 rounded-none p-4 duration-200',
+                            active && 'bg-main-sidebar-background'
+                          )}
+                          {...themeShortcutHandlers}
+                          title='Hold for display options'
+                        >
+                          <HeroIcon iconName={themeShortcutIcon} />
+                          {themeShortcutLabel}
+                        </Button>
                       )}
                     </Menu.Item>
                     <Menu.Item>

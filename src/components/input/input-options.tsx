@@ -104,7 +104,6 @@ export function InputOptions({
 
   const selectEmoji = (emoji: string): void => {
     handleEmojiSelect(emoji);
-    setActivePicker(null);
   };
 
   const selectGif = (gif: GifSelection): void => {

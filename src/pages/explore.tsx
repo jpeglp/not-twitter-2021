@@ -15,8 +15,8 @@ import { SearchBar } from '@components/aside/search-bar';
 import { MobileSidebar } from '@components/sidebar/mobile-sidebar';
 import { Tweet } from '@components/tweet/tweet';
 import { UserCard } from '@components/user/user-card';
-import { CustomIcon } from '@components/ui/custom-icon';
 import { Error } from '@components/ui/error';
+import { HeroIcon } from '@components/ui/hero-icon';
 import { Loading } from '@components/ui/loading';
 import { ToolTip } from '@components/ui/tooltip';
 import type {
@@ -102,7 +102,7 @@ function ExploreSearchHeader(): JSX.Element {
                      dark:active:bg-dark-primary/20'
           aria-label='Interests'
         >
-          <CustomIcon className='h-5 w-5' iconName='TwitterSettingsIcon' />
+          <HeroIcon className='h-5 w-5' iconName='Cog8ToothIcon' />
           <ToolTip tip='Interests' />
         </a>
       </Link>

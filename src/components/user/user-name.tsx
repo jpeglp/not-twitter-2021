@@ -2,6 +2,7 @@ import cn from 'clsx';
 import Link from 'next/link';
 import { getUserPath } from '@lib/routes';
 import { CustomIcon } from '@components/ui/custom-icon';
+import { TwemojiScope } from '@components/ui/twemoji-scope';
 
 type UserNameProps = {
   tag?: keyof JSX.IntrinsicElements;
@@ -40,9 +41,12 @@ export function UserName({
         )}
         tabIndex={username ? 0 : -1}
       >
-        <CustomTag className='min-w-0 truncate leading-[inherit]'>
+        <TwemojiScope
+          as={CustomTag}
+          className='min-w-0 truncate leading-[inherit]'
+        >
           {name}
-        </CustomTag>
+        </TwemojiScope>
         {verified && (
           <i className='inline-flex shrink-0 items-center leading-none'>
             <CustomIcon

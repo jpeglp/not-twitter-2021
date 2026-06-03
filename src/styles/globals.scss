@@ -14,6 +14,20 @@
     --main-accent: var(--accent-blue);
     --profile-picture-radius: 9999px;
     --profile-picture-frame-radius: 9999px;
+    --not-twitter-font-size: 16px;
+    --display-font-scale: 1;
+    --tweet-font-size: 15px;
+    --tweet-line-height: 20px;
+    --tweet-detail-font-size: 23px;
+    --tweet-detail-line-height: 28px;
+    --quoted-tweet-font-size: 15px;
+    --quoted-tweet-line-height: 20px;
+    --article-font-size: 17px;
+    --article-line-height: 24px;
+    --article-heading-font-size: 20px;
+    --article-heading-line-height: 24px;
+    --article-code-font-size: 14px;
+    --article-code-line-height: 20px;
 
     --dark-background: 0 0 0;
     --dim-background: 22 33 44;
@@ -67,6 +81,48 @@
   .custom-underline {
     @apply hover-animation underline decoration-transparent outline-none transition [text-decoration-thickness:1px] 
            hover:decoration-inherit focus-visible:decoration-inherit;
+  }
+
+  .tweet-display-font-size {
+    font-size: var(--tweet-font-size);
+    line-height: var(--tweet-line-height);
+  }
+
+  .tweet-detail-display-font-size {
+    font-size: var(--tweet-detail-font-size);
+    line-height: var(--tweet-detail-line-height);
+  }
+
+  .quoted-tweet-display-font-size {
+    font-size: var(--quoted-tweet-font-size);
+    line-height: var(--quoted-tweet-line-height);
+  }
+
+  .article-display-font-size {
+    font-size: var(--article-font-size);
+    line-height: var(--article-line-height);
+  }
+
+  .article-heading-display-font-size {
+    font-size: var(--article-heading-font-size);
+    line-height: var(--article-heading-line-height);
+  }
+
+  .article-code-display-font-size {
+    font-size: var(--article-code-font-size);
+    line-height: var(--article-code-line-height);
+  }
+
+  .not-twitter-twemoji,
+  img.emoji[alt] {
+    display: inline-block !important;
+    width: 1em !important;
+    max-width: 1em !important;
+    height: 1em !important;
+    max-height: 1em !important;
+    margin: 0 0.05em;
+    vertical-align: -0.125em;
+    object-fit: contain;
   }
 
   .main-tab {
