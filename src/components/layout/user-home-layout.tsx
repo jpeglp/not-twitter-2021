@@ -152,9 +152,7 @@ function ActivityNotificationButton({
   return (
     <div className='relative'>
       <Button
-        className='dark-bg-tab group relative border border-light-line-reply p-2
-                   hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-light-secondary
-                   dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+        className='custom-button main-tab dark-bg-tab group relative border border-main-accent p-2 hover:bg-main-accent/10 active:bg-main-accent/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-main-accent/10 dark:active:bg-dark-primary/20'
         aria-label='Notifications'
         aria-expanded={open}
         disabled={updating}
@@ -167,8 +165,8 @@ function ActivityNotificationButton({
           className='h-5 w-5'
           iconName={
             enabled
-              ? 'TwitterNotificationsFilledIcon'
-              : 'TwitterNotificationsIcon'
+              ? 'TwitterNotificationsOnFilledIcon'
+              : 'TwitterNotificationsOnIcon'
           }
         />
         <ToolTip tip='Notifications' />
@@ -311,9 +309,7 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
                   <div className='flex gap-2 self-start'>
                     {showMessageButton && (
                       <Button
-                        className='dark-bg-tab group relative border border-light-line-reply p-2
-                                   hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-light-secondary
-                                   dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+                        className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
                         onClick={handleMessageClick}
                       >
                         <CustomIcon
