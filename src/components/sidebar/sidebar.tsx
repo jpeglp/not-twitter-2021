@@ -109,7 +109,7 @@ export function Sidebar(): JSX.Element {
           </nav>
           <Button
             className={cn(
-              `accent-tab flex h-[52px] items-center justify-center
+              `accent-tab flex h-[48px] items-center justify-center
                bg-main-accent text-center text-lg font-bold text-white outline-none
                transition-colors hover:bg-main-accent/90 active:bg-main-accent/75`,
               isMobile

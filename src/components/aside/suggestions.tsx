@@ -44,11 +44,12 @@ export function Suggestions(): JSX.Element {
       ) : (
         <motion.div className='inner:px-4 inner:py-3' {...variants}>
           <h2 className='text-xl font-bold'>Who to follow</h2>
-         <a className='border-y border-light-border dark:border-dark-border'> {adminData && <UserCard {...adminData} />}
+          {adminData && <UserCard {...adminData} />}
+          <a className='border-y border-light-border dark:border-dark-border'>
           {suggestionsData?.map((userData) => (
             <UserCard {...userData} key={userData.id} />
           ))} </a>
-          <Link href='/people'>  
+          <Link href='/people'>
             <a
               className='border-y border-light-border dark:border-dark-border custom-button accent-tab hover-card block w-full rounded-2xl
                          rounded-t-none text-center text-main-accent'
