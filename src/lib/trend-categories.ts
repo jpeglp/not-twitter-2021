@@ -19,6 +19,7 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   'arts culture': 'Arts',
   business: 'Business',
   entertainment: 'Entertainment',
+  elections: 'Elections',
   events: 'Events',
   feeds: 'Feeds',
   gaming: 'Gaming',
@@ -36,6 +37,7 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
 const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'andy burnham': 'Politics',
   'ben palmer': 'Politics',
+  'bari weiss': 'Politics',
   'bfc registration': 'Events',
   'blue sky art show': 'Arts',
   'bluesky art show': 'Arts',
@@ -95,6 +97,8 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
     keywords: [
       'conflict',
       'diplomacy',
+      'relations',
+      'israel',
       'foreign policy',
       'geopolitics',
       'global',
@@ -124,7 +128,6 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'court',
       'democrat',
       'democratic',
-      'election',
       'gop',
       'government',
       'governor',
@@ -140,8 +143,6 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'party',
       'policy',
       'politics',
-      'primary',
-      'primaries',
       'president',
       'prime minister',
       'protest',
@@ -155,7 +156,6 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'white house',
       'voting',
       'iowa',
-      'elections',
       'votes'
     ]
   },
@@ -302,6 +302,10 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
   {
     category: 'Events',
     keywords: ['conference', 'convention', 'event', 'festival', 'tickets']
+  },
+    {
+    category: 'Elections',
+    keywords: ['election', 'elections', 'vote','voting', 'primary','primaries','mayor race']
   },
   {
     category: 'Science',
