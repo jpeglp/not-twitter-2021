@@ -391,7 +391,7 @@ export default function Feeds(): JSX.Element {
     {
       id: 'for-you',
       title: 'For you',
-      description: 'Top posts selected from Bluesky Discover.',
+      description: 'A personalized algorithmic feed based on your likes. It finds people who liked the same posts as you, and shows you what else they liked recently.',
       href: DISCOVER_HOME_FEED_HREF,
       iconName: 'SparklesIcon',
       feed: forYouFeed
