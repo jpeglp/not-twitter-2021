@@ -48,8 +48,9 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'trey gowdy': 'Politics',
   'european cities': 'World',
   'euphoria': 'Entertainment',
-  'the last of us': 'Entertainment',
-  'love island': 'Entertainment',
+  'god of war': 'Entertainment',
+  'jack quaid': 'Entertainment',
+  'state of play': 'Entertainment',
   'formula 1': 'Sports',
   'gop bill delay': 'Politics',
   habs: 'Sports',
@@ -75,6 +76,7 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'taylor swift': 'Music',
   'slayyyter': 'Music',
   'underscores': 'Music',
+  'scott pelley': 'Entertainment',
   'kim petras': 'Music',
   'beyonce': 'Music',
   'drake': 'Music',
@@ -138,10 +140,13 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'party',
       'policy',
       'politics',
+      'primary',
+      'primaries',
       'president',
       'prime minister',
       'protest',
       'republican',
+      'redistricting',
       'senate',
       'scandal',
       'supreme court',
@@ -149,6 +154,8 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'trump',
       'white house',
       'voting',
+      'iowa',
+      'elections',
       'votes'
     ]
   },
@@ -213,6 +220,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'show',
       'star wars',
       'television',
+      'love island',
       'tv'
     ]
   },
@@ -261,6 +269,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'twitter',
       'threads',
       'web dev',
+      'instagram',
       'windows'
     ]
   },
@@ -304,7 +313,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
   },
   {
     category: 'News',
-    keywords: ['breaking news', 'headline', 'news', 'report']
+    keywords: ['breaking news', 'headline', 'news', 'journalism', 'report']
   }
 ] as const;
 
