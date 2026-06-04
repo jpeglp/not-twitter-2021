@@ -6,11 +6,30 @@ const notTwitterBlueSettingsChangedEvent =
 
 export type NotTwitterBlueSettings = {
   readerMode: boolean;
+  readerTextSize: 'small' | 'medium' | 'large';
 };
 
 export const defaultNotTwitterBlueSettings: NotTwitterBlueSettings = {
-  readerMode: false
+  readerMode: false,
+  readerTextSize: 'medium'
 };
+
+export const readerTextSizes: NotTwitterBlueSettings['readerTextSize'][] = [
+  'small',
+  'medium',
+  'large'
+];
+
+function isReaderTextSize(
+  value: unknown
+): value is NotTwitterBlueSettings['readerTextSize'] {
+  return (
+    typeof value === 'string' &&
+    readerTextSizes.includes(
+      value as NotTwitterBlueSettings['readerTextSize']
+    )
+  );
+}
 
 function readNotTwitterBlueSettings(): NotTwitterBlueSettings {
   if (typeof window === 'undefined') return defaultNotTwitterBlueSettings;
@@ -25,7 +44,10 @@ function readNotTwitterBlueSettings(): NotTwitterBlueSettings {
       readerMode:
         typeof parsed.readerMode === 'boolean'
           ? parsed.readerMode
-          : defaultNotTwitterBlueSettings.readerMode
+          : defaultNotTwitterBlueSettings.readerMode,
+      readerTextSize: isReaderTextSize(parsed.readerTextSize)
+        ? parsed.readerTextSize
+        : defaultNotTwitterBlueSettings.readerTextSize
     };
   } catch {
     return defaultNotTwitterBlueSettings;
@@ -40,6 +62,9 @@ function writeNotTwitterBlueSettings(settings: NotTwitterBlueSettings): void {
 export function useNotTwitterBlueSettings(): {
   notTwitterBlueSettings: NotTwitterBlueSettings;
   setReaderModeEnabled: (enabled: boolean) => void;
+  setReaderTextSize: (
+    readerTextSize: NotTwitterBlueSettings['readerTextSize']
+  ) => void;
 } {
   const [notTwitterBlueSettings, setNotTwitterBlueSettings] = useState(
     defaultNotTwitterBlueSettings
@@ -68,8 +93,24 @@ export function useNotTwitterBlueSettings(): {
     writeNotTwitterBlueSettings(nextSettings);
   }, []);
 
+  const setReaderTextSize = useCallback(
+    (readerTextSize: NotTwitterBlueSettings['readerTextSize']): void => {
+      const nextSettings = {
+        ...readNotTwitterBlueSettings(),
+        readerTextSize
+      };
+      setNotTwitterBlueSettings(nextSettings);
+      writeNotTwitterBlueSettings(nextSettings);
+    },
+    []
+  );
+
   return useMemo(
-    () => ({ notTwitterBlueSettings, setReaderModeEnabled }),
-    [notTwitterBlueSettings, setReaderModeEnabled]
+    () => ({
+      notTwitterBlueSettings,
+      setReaderModeEnabled,
+      setReaderTextSize
+    }),
+    [notTwitterBlueSettings, setReaderModeEnabled, setReaderTextSize]
   );
 }

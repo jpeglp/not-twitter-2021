@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { AnimatePresence, motion } from 'framer-motion';
+import cn from 'clsx';
 import useSWR from 'swr';
 import {
   getTweetThread,
@@ -11,22 +12,29 @@ import { isPlural } from '@lib/utils';
 import { getTweetRouteId } from '@lib/static-routes';
 import { useRouteBack } from '@lib/hooks/useRouteBack';
 import { useNotTwitterBlueSettings } from '@lib/hooks/use-not-twitter-blue-settings';
-import { getUserPath } from '@lib/routes';
+import { getTweetPath, getUserPath } from '@lib/routes';
 import { PublicTweetLayout } from '@components/layout/common-layout';
 import { MainContainer } from '@components/home/main-container';
 import { MainHeader } from '@components/home/main-header';
 import { Tweet } from '@components/tweet/tweet';
 import { ViewTweet } from '@components/view/view-tweet';
+import { ImagePreview } from '@components/input/image-preview';
+import { TweetEmbed } from '@components/tweet/tweet-embed';
+import { TweetText } from '@components/tweet/tweet-text';
 import { SEO } from '@components/common/seo';
 import { Button } from '@components/ui/button';
 import { HeroIcon } from '@components/ui/hero-icon';
 import { Loading } from '@components/ui/loading';
+import { UserAvatar } from '@components/user/user-avatar';
+import { UserName } from '@components/user/user-name';
+import { UserUsername } from '@components/user/user-username';
 import type { ReactElement, ReactNode } from 'react';
 import type {
   TweetThreadPage,
   TweetThreadParentsPage
 } from '@lib/atproto/backend';
 import type { TweetWithUser } from '@lib/types/tweet';
+import type { NotTwitterBlueSettings } from '@lib/hooks/use-not-twitter-blue-settings';
 
 type ParentPageState = TweetThreadParentsPage & {
   loadingMore: boolean;
@@ -63,6 +71,133 @@ function mergeParentTweets(
 
 function hasTweet(tweets: TweetWithUser[], tweetId: string): boolean {
   return tweets.some(({ id }) => id === tweetId);
+}
+
+function getReaderModeTweets(
+  parents: TweetWithUser[],
+  focalTweet: TweetWithUser | null,
+  threadReplies: TweetWithUser[]
+): TweetWithUser[] {
+  if (!focalTweet) return [];
+
+  const threadAuthorId = focalTweet.createdBy;
+  const sameAuthorParents = parents.filter(
+    ({ createdBy }) => createdBy === threadAuthorId
+  );
+  const sameAuthorReplies = threadReplies.filter(
+    ({ createdBy }) => createdBy === threadAuthorId
+  );
+
+  return [...sameAuthorParents, focalTweet, ...sameAuthorReplies];
+}
+
+const readerTextSizeClassName: Record<
+  NotTwitterBlueSettings['readerTextSize'],
+  string
+> = {
+  small: 'text-[18px] leading-7',
+  medium: 'text-[21px] leading-8',
+  large: 'text-[24px] leading-9'
+};
+
+function ReaderModeThread({
+  tweets,
+  textSize,
+  onExit
+}: {
+  tweets: TweetWithUser[];
+  textSize: NotTwitterBlueSettings['readerTextSize'];
+  onExit: () => void;
+}): JSX.Element {
+  const [firstTweet] = tweets;
+
+  if (!firstTweet) return <TweetNotFound />;
+
+  const { user } = firstTweet;
+
+  return (
+    <>
+      <div className='border-b border-light-border px-4 py-3 dark:border-dark-border'>
+        <p className='text-center text-[13px] font-bold leading-4 text-light-secondary dark:text-dark-secondary'>
+          Reader Mode
+        </p>
+      </div>
+      <article className='border-b border-light-border px-4 py-4 dark:border-dark-border'>
+        <header className='mb-5 flex items-center gap-3'>
+          <UserAvatar
+            src={user.photoURL}
+            alt={user.name}
+            username={user.username}
+          />
+          <div className='min-w-0'>
+            <UserName
+              name={user.name}
+              username={user.username}
+              verified={user.verified}
+            />
+            <UserUsername username={user.username} />
+          </div>
+        </header>
+        <div className='flex flex-col gap-5'>
+          {tweets.map((tweet, index) => {
+            const displayCard = tweet.card;
+            const hasMedia = !!tweet.images?.length;
+            const hasEmbed = !!displayCard || !!tweet.quotedTweet;
+
+            return (
+              <section
+                className={cn(
+                  index > 0 &&
+                    'border-t border-light-border pt-5 dark:border-dark-border'
+                )}
+                key={tweet.id}
+              >
+                {tweet.text && (
+                  <TweetText
+                    className={cn(
+                      'text-light-primary dark:text-dark-primary',
+                      readerTextSizeClassName[textSize]
+                    )}
+                    linkClassName='text-main-accent'
+                    text={tweet.text}
+                  />
+                )}
+                {hasMedia && (
+                  <ImagePreview
+                    tweet
+                    tweetData={tweet}
+                    imagesPreview={tweet.images ?? []}
+                    previewCount={tweet.images?.length ?? 0}
+                    moderationWarning={tweet.mediaWarning}
+                  />
+                )}
+                {hasEmbed && (
+                  <TweetEmbed
+                    card={displayCard}
+                    quotedTweet={tweet.quotedTweet}
+                    articleAuthor={tweet.user}
+                    articleTweetPath={getTweetPath(tweet.id, tweet.user.username)}
+                  />
+                )}
+              </section>
+            );
+          })}
+        </div>
+      </article>
+      <div className='fixed inset-x-0 bottom-20 z-20 flex justify-center pointer-events-none'>
+        <Button
+          className='pointer-events-auto rounded-full bg-main-background px-5 py-3 text-[17px]
+                     font-extrabold shadow-[0_2px_16px_rgba(0,0,0,0.24)]
+                     ring-1 ring-light-border hover:bg-light-primary/5 active:bg-light-primary/10
+                     dark:ring-dark-border dark:hover:bg-dark-primary/10'
+          onClick={onExit}
+        >
+          <span className='mr-2 text-xl leading-none'>×</span>
+          Exit Reader
+        </Button>
+      </div>
+    </>
+  );
 }
 
 function TweetNotFound(): JSX.Element {
@@ -142,12 +277,16 @@ export default function TweetId(): JSX.Element {
     visibleThreadReplyCount < threadReplies.length;
   const visibleReplies = repliesData.slice(0, visibleReplyCount);
   const hasMoreReplies = visibleReplyCount < repliesData.length;
+  const readerModeTweets = getReaderModeTweets(
+    parentTweets,
+    tweetData,
+    threadReplies
+  );
   const readerModeAvailable =
-    notTwitterBlueSettings.readerMode && hasThread && !!tweetData && !tweetUnavailable;
-  const readerModeTweets =
-    readerModeAvailable && tweetData
-      ? [...parentTweets, tweetData, ...threadReplies]
-      : [];
+    notTwitterBlueSettings.readerMode &&
+    readerModeTweets.length > 1 &&
+    !!tweetData &&
+    !tweetUnavailable;
 
   const pageTitle = tweetData
     ? tweetUnavailable
@@ -295,8 +434,10 @@ export default function TweetId(): JSX.Element {
           <Button
             className='dark-bg-tab group relative ml-auto p-2 text-main-accent
                        hover:bg-main-accent/10 active:bg-main-accent/20'
-            aria-label={readerModeActive ? 'Exit Reader Mode' : 'Reader Mode'}
-            title={readerModeActive ? 'Exit Reader Mode' : 'Reader Mode'}
+            aria-label={
+              readerModeActive ? 'Exit Reader' : 'View thread in Reader'
+            }
+            title={readerModeActive ? 'Exit Reader' : 'View thread in Reader'}
             onClick={(): void => setReaderModeActive((active) => !active)}
           >
             <HeroIcon
@@ -314,40 +455,11 @@ export default function TweetId(): JSX.Element {
         ) : readerModeActive ? (
           <>
             {pageTitle && <SEO title={pageTitle} />}
-            <div className='border-b border-light-border px-4 py-3 dark:border-dark-border'>
-              <p className='text-center text-[13px] font-bold leading-4 text-light-secondary dark:text-dark-secondary'>
-                Reader Mode
-              </p>
-            </div>
-            {readerModeTweets.map((tweet) =>
-              tweet.id === tweetData.id && !tweetUnavailable ? (
-                <ViewTweet
-                  viewTweetRef={viewTweetRef}
-                  onReplySent={handleReplySent}
-                  {...tweet}
-                  key={tweet.id}
-                />
-              ) : (
-                <Tweet
-                  conversationTweet
-                  {...tweet}
-                  onReplySent={handleReplySent}
-                  key={tweet.id}
-                />
-              )
-            )}
-            <div className='fixed inset-x-0 bottom-20 z-20 flex justify-center pointer-events-none'>
-              <Button
-                className='pointer-events-auto rounded-full bg-main-background px-5 py-3 text-[17px]
-                           font-extrabold shadow-[0_2px_16px_rgba(0,0,0,0.24)]
-                           ring-1 ring-light-border hover:bg-light-primary/5 active:bg-light-primary/10
-                           dark:ring-dark-border dark:hover:bg-dark-primary/10'
-                onClick={(): void => setReaderModeActive(false)}
-              >
-                <span className='mr-2 text-xl leading-none'>×</span>
-                Exit Reader Mode
-              </Button>
-            </div>
+            <ReaderModeThread
+              tweets={readerModeTweets}
+              textSize={notTwitterBlueSettings.readerTextSize}
+              onExit={(): void => setReaderModeActive(false)}
+            />
           </>
         ) : (
           <>
@@ -397,6 +509,21 @@ export default function TweetId(): JSX.Element {
                 onReplySent={handleReplySent}
                 {...tweetData}
               />
+            )}
+            {readerModeAvailable && (
+              <div className='border-b border-light-border px-4 py-3 dark:border-dark-border'>
+                <Button
+                  className='dark-bg-tab flex w-full items-center justify-center gap-2 rounded-full
+                             border border-light-border px-4 py-3 text-[15px] font-extrabold
+                             text-main-accent transition hover:bg-main-accent/10
+                             active:bg-main-accent/20 dark:border-dark-border'
+                  type='button'
+                  onClick={(): void => setReaderModeActive(true)}
+                >
+                  <HeroIcon className='h-5 w-5' iconName='BookOpenIcon' />
+                  View thread in Reader
+                </Button>
+              </div>
             )}
             <AnimatePresence>
               {visibleThreadReplies.map((tweet) => (
