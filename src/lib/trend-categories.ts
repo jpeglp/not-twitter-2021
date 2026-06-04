@@ -334,7 +334,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
   },
     {
     category: 'Elections',
-    keywords: ['election', 'elections', 'vote','voting', 'primary','primaries','mayor race']
+    keywords: ['election', 'elections', 'vote','voting', 'primary','primaries','mayor race','mayoral race']
   },
   {
     category: 'Science',
