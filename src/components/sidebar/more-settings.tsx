@@ -49,6 +49,7 @@ export function MoreSettings(): JSX.Element {
             open ||
             isNavLinkActive(asPath, '/settings') ||
             isNavLinkActive(asPath, '/privacy') ||
+            isNavLinkActive(asPath, '/not-twitter-blue') ||
             isNavLinkActive(asPath, '/help-center');
 
           return (
@@ -122,6 +123,20 @@ export function MoreSettings(): JSX.Element {
                         >
                           <HeroIcon iconName='QuestionMarkCircleIcon' />
                           Help center
+                        </MenuLink>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }): JSX.Element => (
+                        <MenuLink
+                          className={cn(
+                            'flex w-full gap-3 p-4 duration-200',
+                            active && 'bg-main-sidebar-background'
+                          )}
+                          href='/not-twitter-blue'
+                        >
+                          <HeroIcon iconName='TwitterBlueIcon' />
+                          Not Twitter Blue
                         </MenuLink>
                       )}
                     </Menu.Item>
