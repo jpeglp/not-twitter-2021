@@ -135,7 +135,7 @@ export function MoreSettings(): JSX.Element {
                           )}
                           href='/not-twitter-blue'
                         >
-                          <HeroIcon iconName='QuestionMarkCircleIcon' />
+                          <CustomIcon iconName='TwitterBlueIcon' />
                           Not Twitter Blue
                         </MenuLink>
                       )}
