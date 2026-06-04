@@ -5,8 +5,7 @@ export const undoTweetKinds = [
   'tweet',
   'reply',
   'quote',
-  'thread',
-  'poll'
+  'thread'
 ] as const;
 
 export type UndoTweetInterval = typeof undoTweetIntervals[number];
@@ -28,8 +27,7 @@ export const defaultUndoTweetSettings: UndoTweetSettings = {
     tweet: true,
     reply: true,
     quote: true,
-    thread: true,
-    poll: true
+    thread: true
   }
 };
 
@@ -72,11 +70,7 @@ function readUndoTweetSettings(): UndoTweetSettings {
         thread:
           typeof parsedKinds.thread === 'boolean'
             ? parsedKinds.thread
-            : defaultUndoTweetSettings.kinds.thread,
-        poll:
-          typeof parsedKinds.poll === 'boolean'
-            ? parsedKinds.poll
-            : defaultUndoTweetSettings.kinds.poll
+            : defaultUndoTweetSettings.kinds.thread
       }
     };
   } catch {

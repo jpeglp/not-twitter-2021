@@ -11,8 +11,7 @@ const enabledSettings: UndoTweetSettings = {
     tweet: true,
     reply: true,
     quote: true,
-    thread: true,
-    poll: true
+    thread: true
   }
 };
 
@@ -34,8 +33,7 @@ describe('Undo Tweet settings', () => {
         tweet: true,
         reply: false,
         quote: true,
-        thread: true,
-        poll: true
+        thread: true
       }
     };
 

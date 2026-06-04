@@ -1088,7 +1088,8 @@ export function Input({
             ? 'pb-4'
             : 'border-b border-light-border dark:border-dark-border',
           compactReply && 'pr-5',
-          (disabled || loading) && 'pointer-events-none opacity-50'
+          (disabled || (loading && !isUndoTweetPending)) &&
+            'pointer-events-none opacity-50'
         )}
         htmlFor={formId}
       >
