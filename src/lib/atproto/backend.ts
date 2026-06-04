@@ -121,6 +121,8 @@ const BSKY_MEDIA_POST_VISIBILITY_RETRIES = 8;
 const BSKY_THREAD_REPLY_DEPTH = 100;
 const BSKY_THREAD_FULL_REPLY_DEPTH = 1000;
 const BSKY_THREAD_FULL_PARENT_HEIGHT = 1000;
+const BSKY_READER_AUTHOR_FEED_LIMIT = 100;
+const BSKY_READER_AUTHOR_FEED_MAX_PAGES = 10;
 const BSKY_THREAD_PARENT_PAGE_SIZE = 6;
 const SERVICE_AUTH_TOKEN_TTL_SECONDS = 55;
 const BSKY_CHAT_ACCESS_MESSAGE =
@@ -5908,9 +5910,12 @@ function mergeThreadRepliesByFullThreadOrder(
   baseReplies: TweetWithUser[],
   fullReplies: TweetWithUser[]
 ): TweetWithUser[] {
-  if (fullReplies.length <= baseReplies.length) return baseReplies;
-
   const baseById = new Map(baseReplies.map((reply) => [reply.id, reply]));
+  const hasNewReply = fullReplies.some((reply) => !baseById.has(reply.id));
+
+  if (!hasNewReply && fullReplies.length <= baseReplies.length)
+    return baseReplies;
+
   const seenIds = new Set<string>();
   const merged = fullReplies.map((reply) => {
     seenIds.add(reply.id);
@@ -5922,6 +5927,163 @@ function mergeThreadRepliesByFullThreadOrder(
   }
 
   return merged;
+}
+
+function getReaderModeRootTweet(page: TweetThreadPage): TweetWithUser {
+  return page.parents[0] ?? page.tweet;
+}
+
+function getReplyRefUri(
+  record: unknown,
+  refKey: 'root' | 'parent'
+): string | null {
+  if (!isThreadRecord(record)) return null;
+
+  const { reply } = record;
+  if (!isThreadRecord(reply)) return null;
+
+  const ref = reply[refKey];
+  if (!isThreadRecord(ref)) return null;
+
+  return typeof ref.uri === 'string' ? ref.uri : null;
+}
+
+function getPostReplyRootUri(post: AppBskyFeedDefs.PostView): string | null {
+  return getReplyRefUri(post.record, 'root');
+}
+
+function getPostReplyParentUri(post: AppBskyFeedDefs.PostView): string | null {
+  return getReplyRefUri(post.record, 'parent');
+}
+
+function compareAuthorFeedItemsByCreatedAt(
+  a: ActorFeedPost,
+  b: ActorFeedPost
+): number {
+  return (
+    getPostCreatedAt(a.post.record, a.post.indexedAt).toDate().getTime() -
+      getPostCreatedAt(b.post.record, b.post.indexedAt).toDate().getTime() ||
+    a.post.uri.localeCompare(b.post.uri)
+  );
+}
+
+function getAuthorFeedItemParent(
+  item: ActorFeedPost,
+  rootTweet: TweetWithUser
+): { id: string; username: string } | null {
+  if (item.reply?.parent && AppBskyFeedDefs.isPostView(item.reply.parent))
+    return {
+      id: postIdFromUri(item.reply.parent.uri),
+      username: item.reply.parent.author.handle
+    };
+
+  const parentUri = getPostReplyParentUri(item.post);
+
+  return parentUri
+    ? { id: postIdFromUri(parentUri), username: rootTweet.user.username }
+    : null;
+}
+
+async function getReaderAuthorFeedItems(
+  actor: string
+): Promise<{ items: ActorFeedPost[]; moderationOpts: ModerationOpts | null }> {
+  const moderationOpts = await getSafeModerationOpts();
+  const items: ActorFeedPost[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < BSKY_READER_AUTHOR_FEED_MAX_PAGES; page++) {
+    const response = await getAppViewAgent().getAuthorFeed({
+      actor,
+      filter: 'posts_with_replies',
+      limit: BSKY_READER_AUTHOR_FEED_LIMIT,
+      cursor
+    });
+
+    items.push(...response.data.feed);
+    cursor = response.data.cursor;
+
+    if (!cursor) break;
+  }
+
+  return { items, moderationOpts };
+}
+
+function selectReaderThreadItemsFromAuthorFeed(
+  items: ActorFeedPost[],
+  rootUri: string,
+  authorDid: string,
+  moderationOpts: ModerationOpts | null
+): ActorFeedPost[] {
+  const candidates = items
+    .filter(({ post }) => {
+      if (post.author.did !== authorDid) return false;
+      if (post.uri === rootUri) return false;
+      if (getPostReplyRootUri(post) !== rootUri) return false;
+      return !isModerationFilteredWithoutTombstone(post, moderationOpts);
+    })
+    .sort(compareAuthorFeedItemsByCreatedAt);
+  const byParentUri = new Map<string, ActorFeedPost[]>();
+
+  for (const item of candidates) {
+    const parentUri = getPostReplyParentUri(item.post);
+    if (!parentUri) continue;
+
+    const parentItems = byParentUri.get(parentUri) ?? [];
+    parentItems.push(item);
+    byParentUri.set(parentUri, parentItems);
+  }
+
+  byParentUri.forEach((parentItems) => {
+    parentItems.sort(compareAuthorFeedItemsByCreatedAt);
+  });
+
+  const selected: ActorFeedPost[] = [];
+  const seenUris = new Set<string>();
+  let currentUri = rootUri;
+
+  while (currentUri) {
+    const nextItem = byParentUri
+      .get(currentUri)
+      ?.find((item) => !seenUris.has(item.post.uri));
+
+    if (!nextItem) break;
+
+    selected.push(nextItem);
+    seenUris.add(nextItem.post.uri);
+    currentUri = nextItem.post.uri;
+  }
+
+  for (const item of candidates) {
+    if (seenUris.has(item.post.uri)) continue;
+
+    selected.push(item);
+    seenUris.add(item.post.uri);
+  }
+
+  return selected;
+}
+
+async function getFullThreadRepliesFromAuthorFeed(
+  page: TweetThreadPage
+): Promise<TweetWithUser[]> {
+  try {
+    const rootTweet = getReaderModeRootTweet(page);
+    const rootUri = uriFromPostId(rootTweet.id);
+    const { items, moderationOpts } = await getReaderAuthorFeedItems(
+      rootTweet.createdBy
+    );
+
+    return selectReaderThreadItemsFromAuthorFeed(
+      items,
+      rootUri,
+      rootTweet.createdBy,
+      moderationOpts
+    ).map((item) =>
+      mapPostWithUser(item.post, getAuthorFeedItemParent(item, rootTweet))
+    );
+  } catch {
+    return [];
+  }
 }
 
 async function getFullThreadV2Items(uri: string): Promise<ThreadV2Item[]> {
@@ -8450,16 +8612,18 @@ export async function getFullTweetThread(
 
   if (!page) return null;
 
-  const fullThreadReplies = await getFullThreadRepliesFromThreadV2(
-    page,
-    uriFromPostId(id)
+  const [fullThreadReplies, authorFeedThreadReplies] = await Promise.all([
+    getFullThreadRepliesFromThreadV2(page, uriFromPostId(id)),
+    getFullThreadRepliesFromAuthorFeed(page)
+  ]);
+  const mergedThreadReplies = mergeThreadRepliesByFullThreadOrder(
+    mergeThreadRepliesByFullThreadOrder(page.threadReplies, fullThreadReplies),
+    authorFeedThreadReplies
   );
 
   return {
     ...page,
-    threadReplies: filterDeletedTweets(
-      mergeThreadRepliesByFullThreadOrder(page.threadReplies, fullThreadReplies)
-    )
+    threadReplies: filterDeletedTweets(mergedThreadReplies)
   };
 }
 
