@@ -60,9 +60,9 @@ function SettingsNavRow({
 
 export default function NotTwitterBlue(): JSX.Element {
   return (
-    <MainContainer className='flex-1 !max-w-none pb-0'>
+    <MainContainer className='!max-w-[990px] pb-0'>
       <SEO title='Not Twitter Blue / Not Twitter' />
-      <div className='grid min-h-screen md:grid-cols-[360px_minmax(0,1fr)]'>
+      <div className='grid min-h-screen md:grid-cols-[390px_minmax(0,600px)]'>
         <aside className='hidden border-r border-light-border dark:border-dark-border md:block'>
           <header
             className='sticky top-0 z-10 flex h-[53px] items-center border-b border-light-border

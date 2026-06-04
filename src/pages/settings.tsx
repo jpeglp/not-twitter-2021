@@ -694,7 +694,7 @@ function SettingsNavigation({
   onSelect: (section: SettingsSection) => void;
 }): JSX.Element {
   return (
-    <section className='w-full shrink-0 xs:w-[360px]'>
+    <section className='w-full shrink-0 md:w-[390px]'>
       <header className='sticky top-0 z-10 flex h-[53px] items-center bg-main-background/80 px-4 backdrop-blur-md'>
         <h1 className='text-xl font-extrabold'>Settings</h1>
       </header>
