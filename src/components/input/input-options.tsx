@@ -64,6 +64,7 @@ type InputOptionsProps = {
   inputLength: number;
   isValidTweet: boolean;
   isCharLimitExceeded: boolean;
+  hideSubmit?: boolean;
   handleImageUpload: (
     e: ChangeEvent<HTMLInputElement> | ClipboardEvent<HTMLTextAreaElement>
   ) => void;
@@ -78,6 +79,7 @@ export function InputOptions({
   inputLength,
   isValidTweet,
   isCharLimitExceeded,
+  hideSubmit,
   handleImageUpload,
   handleEmojiSelect,
   handleGifSelect
@@ -196,16 +198,18 @@ export function InputOptions({
             </>
           )}
         </motion.div>
-        <Button
-          type='submit'
-          className='accent-tab h-9 bg-main-accent px-4 py-0 text-[15px] font-bold leading-5 text-white
-                     enabled:hover:bg-main-accent/90
-                     enabled:active:bg-main-accent/75'
-          disabled={!isValidTweet}
-          aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
-        >
-          {reply ? 'Reply' : 'Tweet'}
-        </Button>
+        {!hideSubmit && (
+          <Button
+            type='submit'
+            className='accent-tab h-9 bg-main-accent px-4 py-0 text-[15px] font-bold leading-5 text-white
+                       enabled:hover:bg-main-accent/90
+                       enabled:active:bg-main-accent/75'
+            disabled={!isValidTweet}
+            aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
+          >
+            {reply ? 'Reply' : 'Tweet'}
+          </Button>
+        )}
       </div>
     </motion.div>
   );

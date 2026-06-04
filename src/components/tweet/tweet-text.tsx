@@ -145,6 +145,12 @@ function getTextParts(text: string): TextPart[] {
   return parts;
 }
 
+function isEntityPart(part: TextPart): boolean {
+  return (
+    part.type === 'url' || part.type === 'hashtag' || part.type === 'mention'
+  );
+}
+
 export function TweetText({
   text,
   className,
@@ -160,6 +166,7 @@ export function TweetText({
   const Tag = tag ?? 'p';
   const entityClassName =
     linkClassName ?? 'custom-underline text-main-accent outline-none';
+  const disabledEntityClassName = linkClassName ?? 'text-main-accent';
 
   return (
     <TwemojiScope
@@ -172,7 +179,16 @@ export function TweetText({
     >
       {getTextParts(text).map((part, index) =>
         disableLinks ? (
-          <span key={`${part.value}-${index}`}>{part.value}</span>
+          <span
+            className={cn(isEntityPart(part) && disabledEntityClassName)}
+            key={`${part.value}-${index}`}
+          >
+            {part.type === 'mention'
+              ? formatAtprotoDisplayIdentifier(part.username, {
+                  hideBskySocialSuffix
+                })
+              : part.value}
+          </span>
         ) : part.type === 'url' ? (
           <a
             className={entityClassName}

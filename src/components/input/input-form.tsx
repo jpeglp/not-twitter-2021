@@ -32,10 +32,12 @@ type InputFormProps = {
   modal?: boolean;
   formId: string;
   loading: boolean;
+  readOnly?: boolean;
   visited: boolean;
   reply?: boolean;
   quote?: boolean;
   children: ReactNode;
+  footerStatus?: ReactNode;
   inputRef: RefObject<HTMLTextAreaElement>;
   inputValue: string;
   replySetting: TweetReplySetting;
@@ -160,8 +162,10 @@ export function InputForm({
   quote,
   formId,
   loading,
+  readOnly,
   visited,
   children,
+  footerStatus,
   inputRef,
   replyModal,
   inputValue,
@@ -255,7 +259,7 @@ export function InputForm({
       } else discardTweet();
     else if (isSubmitShortcut(event)) {
       event.preventDefault();
-      if (isValidTweet && !loading) void sendTweet();
+      if (isValidTweet && !loading && !readOnly) void sendTweet();
     }
   };
 
@@ -416,6 +420,7 @@ export function InputForm({
               onKeyUp={handleTextAreaKeyUp}
               onScroll={handleTextAreaScroll}
               onChange={handleChange}
+              readOnly={readOnly}
               aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
               ref={inputRef}
             />
@@ -444,6 +449,7 @@ export function InputForm({
         </div>
       </div>
       {children}
+      {footerStatus}
       {isVisibilityShown && (
         <motion.div
           className='flex border-b border-light-border pb-2 dark:border-dark-border'
