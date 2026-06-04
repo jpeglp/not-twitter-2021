@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useModal } from '@lib/hooks/useModal';
 import { Button } from '@components/ui/button';
 import { NextImage } from '@components/ui/next-image';
@@ -13,6 +14,20 @@ export function UserHomeAvatar({
   profileData
 }: UserHomeAvatarProps): JSX.Element {
   const { open, openModal, closeModal } = useModal();
+
+  // attempt to replace bsky banner
+  useEffect(() => {
+    if (!profileData?.src) return;
+
+    const targetURL =
+      'https://cdn.bsky.app/img/banner/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreichzyovokfzmymz36p5jibbjrhsur6n7hjnzxrpbt5jaydp2s';
+
+    const replacementURL = 'https://jpeglp.github.io/not-twitter-2021/assets/twitter-banner.png'; // your local image
+
+    if (profileData.src === targetURL) {
+      profileData.src = replacementURL;
+    }
+  }, [profileData]);
 
   return (
     <div className='mb-8 xs:mb-14 sm:mb-16'>
@@ -32,6 +47,7 @@ export function UserHomeAvatar({
           closeModal={closeModal}
         />
       </Modal>
+
       <Button
         className='accent-tab profile-picture-frame absolute -mt-3 aspect-square w-24 -translate-y-1/2 overflow-hidden p-0
                    disabled:cursor-auto disabled:opacity-100 xs:w-32 sm:w-36
