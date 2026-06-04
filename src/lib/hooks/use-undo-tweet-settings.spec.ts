@@ -1,4 +1,5 @@
 import {
+  defaultUndoTweetSettings,
   shouldUseUndoTweet,
   type UndoTweetSettings
 } from './use-undo-tweet-settings';
@@ -16,6 +17,10 @@ const enabledSettings: UndoTweetSettings = {
 };
 
 describe('Undo Tweet settings', () => {
+  it('uses the Twitter 9.3 Undo Tweet default delay', () => {
+    expect(defaultUndoTweetSettings.intervalSeconds).toBe(20);
+  });
+
   it('is disabled globally when the main toggle is off', () => {
     expect(
       shouldUseUndoTweet({ ...enabledSettings, enabled: false }, 'tweet')

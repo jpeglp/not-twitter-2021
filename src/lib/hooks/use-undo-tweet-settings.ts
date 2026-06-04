@@ -21,9 +21,9 @@ export type UndoTweetSettings = {
 const undoTweetSettingsKey = 'not-twitter:undo-tweet-settings:v1';
 const undoTweetSettingsChangedEvent = 'not-twitter:undo-tweet-settings-changed';
 
-const defaultUndoTweetSettings: UndoTweetSettings = {
+export const defaultUndoTweetSettings: UndoTweetSettings = {
   enabled: false,
-  intervalSeconds: 30,
+  intervalSeconds: 20,
   kinds: {
     tweet: true,
     reply: true,
