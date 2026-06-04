@@ -225,9 +225,7 @@ function ProfileSearchButton({
 }): JSX.Element {
   return (
     <Button
-      className='dark-bg-tab group relative border border-light-line-reply p-2
-                 hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-light-secondary
-                 dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+      className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-main-accent/10 active:bg-main-accent/20 text-main-accent dark:border-main-accent dark:hover:bg-main-accent/10 dark:active:bg-main-accent/20'
       aria-label={`Search Tweets from ${displayUsername}`}
       onClick={onClick}
     >
@@ -357,7 +355,7 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
                     )}
                     {showMessageButton && (
                       <Button
-                        className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-light-primary/10 active:bg-light-main-accent/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-main-accent/10 dark:active:bg-dark-primary/20'
+                        className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-main-accent/10 active:bg-light-main-accent/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-main-accent/10 dark:active:bg-dark-primary/20'
                         onClick={handleMessageClick}
                       >
                         <CustomIcon
