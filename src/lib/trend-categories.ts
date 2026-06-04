@@ -215,7 +215,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'cinema',
       'comedian',
       'comedy',
-      'horror'
+      'horror',
       'film',
       'films',
       'mando',
