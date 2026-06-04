@@ -173,10 +173,10 @@ export function FollowButton({
       </Modal>
       {optimisticFollowing ? (
         <Button
-          className='dark-bg-tab group min-w-[106px] self-start border border-light-line-reply px-4 py-1.5
-                     font-bold hover:border-accent-red hover:bg-accent-red/10 hover:text-accent-red
+          className='dark-bg-tab group min-w-[106px] self-start border border-main-accent px-4 py-1.5
+                     font-bold text-main-accent hover:border-accent-red hover:bg-accent-red/10 hover:text-accent-red
                      focus-visible:border-accent-red focus-visible:bg-accent-red/10 focus-visible:text-accent-red
-                     dark:border-light-secondary'
+                     dark:border-main-accent'
           aria-busy={updatingFollow}
           onClick={preventBubbling(updatingFollow ? null : openModal)}
         >
