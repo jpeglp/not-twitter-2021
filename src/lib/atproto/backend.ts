@@ -115,7 +115,9 @@ const BSKY_PROFILE_IMAGE_MIME_TYPE = 'image/jpeg';
 const BSKY_PROFILE_IMAGE_ACCEPTED_TYPES = /^image\/(?:jpe?g|png)$/i;
 const BSKY_POST_IMAGE_ACCEPTED_TYPES = /^image\/(?:jpe?g|png|webp)$/i;
 const BSKY_MEDIA_POST_VISIBILITY_RETRIES = 8;
-const BSKY_THREAD_REPLY_DEPTH = 25;
+const BSKY_THREAD_REPLY_DEPTH = 100;
+const BSKY_THREAD_FULL_REPLY_DEPTH = 1000;
+const BSKY_THREAD_FULL_PARENT_HEIGHT = 1000;
 const BSKY_THREAD_PARENT_PAGE_SIZE = 6;
 const SERVICE_AUTH_TOKEN_TTL_SECONDS = 55;
 const BSKY_CHAT_ACCESS_MESSAGE =
@@ -8223,8 +8225,12 @@ export async function getTweet(id: string): Promise<Tweet | null> {
   return mapPostWithUser(post);
 }
 
-export async function getTweetThread(
-  id: string
+async function getTweetThreadWithDepth(
+  id: string,
+  {
+    depth = BSKY_THREAD_REPLY_DEPTH,
+    parentHeight = BSKY_THREAD_PARENT_PAGE_SIZE + 1
+  }: { depth?: number; parentHeight?: number } = {}
 ): Promise<TweetThreadPage | null> {
   if (!agent) return null;
   if (!id || id === 'null') return null;
@@ -8234,8 +8240,8 @@ export async function getTweetThread(
   const moderationOpts = await getSafeModerationOpts();
   const threadParams = {
     uri,
-    depth: BSKY_THREAD_REPLY_DEPTH,
-    parentHeight: BSKY_THREAD_PARENT_PAGE_SIZE + 1
+    depth,
+    parentHeight
   };
 
   try {
@@ -8288,6 +8294,21 @@ export async function getTweetThread(
     if (isRecordNotFoundError(error)) return null;
     throw error;
   }
+}
+
+export async function getTweetThread(
+  id: string
+): Promise<TweetThreadPage | null> {
+  return getTweetThreadWithDepth(id);
+}
+
+export async function getFullTweetThread(
+  id: string
+): Promise<TweetThreadPage | null> {
+  return getTweetThreadWithDepth(id, {
+    depth: BSKY_THREAD_FULL_REPLY_DEPTH,
+    parentHeight: BSKY_THREAD_FULL_PARENT_HEIGHT
+  });
 }
 
 export async function getTweetThreadParentsPage(

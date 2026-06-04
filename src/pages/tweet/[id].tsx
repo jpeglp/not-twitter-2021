@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import cn from 'clsx';
 import useSWR from 'swr';
 import {
+  getFullTweetThread,
   getTweetThread,
   getTweetThreadParentsPage,
   subscribeBackend
@@ -251,11 +252,34 @@ export default function TweetId(): JSX.Element {
   const [visibleReplyCount, setVisibleReplyCount] = useState(REPLIES_PAGE_SIZE);
   const [readerModeActive, setReaderModeActive] = useState(false);
   const { notTwitterBlueSettings } = useNotTwitterBlueSettings();
+  const baseTweetData = threadData?.tweet ?? null;
+  const baseThreadReplies = threadData?.threadReplies ?? [];
+  const shouldPrefetchFullThread =
+    !!tweetId &&
+    !!baseTweetData &&
+    !baseTweetData.parent &&
+    !baseTweetData.unavailable &&
+    baseThreadReplies.length > ROOT_THREAD_REPLY_INITIAL_COUNT;
+
+  const { data: fullThreadData } = useSWR<TweetThreadPage | null, Error>(
+    tweetId && (readerModeActive || shouldPrefetchFullThread)
+      ? ['tweet-thread-full', tweetPathId]
+      : null,
+    () => getFullTweetThread(tweetPathId),
+    { revalidateOnFocus: false }
+  );
 
   const tweetLoading = !!tweetId && !error && threadData === undefined;
   const tweetData = threadData?.tweet ?? null;
   const parentTweets = parentPage.parents;
-  const threadReplies = threadData?.threadReplies ?? [];
+  const fullThreadReplies =
+    fullThreadData && fullThreadData.tweet?.id === tweetData?.id
+      ? fullThreadData.threadReplies
+      : [];
+  const threadReplies =
+    fullThreadReplies.length > baseThreadReplies.length
+      ? fullThreadReplies
+      : baseThreadReplies;
   const repliesData = threadData?.replies ?? [];
   const tweetUnavailable = !!tweetData?.unavailable;
   const routeBack = useRouteBack(
@@ -280,10 +304,13 @@ export default function TweetId(): JSX.Element {
     visibleThreadReplyCount < threadReplies.length;
   const visibleReplies = repliesData.slice(0, visibleReplyCount);
   const hasMoreReplies = visibleReplyCount < repliesData.length;
+  const readerThreadData = fullThreadData ?? threadData;
   const readerModeTweets = getReaderModeTweets(
-    parentTweets,
-    tweetData,
-    threadReplies
+    readerModeActive && fullThreadData ? fullThreadData.parents : parentTweets,
+    readerThreadData?.tweet ?? tweetData,
+    readerModeActive && fullThreadData
+      ? fullThreadData.threadReplies
+      : threadReplies
   );
   const readerModeAvailable =
     notTwitterBlueSettings.readerMode &&
