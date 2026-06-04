@@ -46,6 +46,11 @@ import {
   type LocalTweetDraft,
   type TweetDraftScope
 } from '@lib/tweet-drafts';
+import {
+  shouldUseUndoTweet,
+  useUndoTweetSettings,
+  type UndoTweetKind
+} from '@lib/hooks/use-undo-tweet-settings';
 import { createYouTubeCardFromText } from '@lib/youtube';
 import { UserAvatar } from '@components/user/user-avatar';
 import { TweetEmbed } from '@components/tweet/tweet-embed';
@@ -87,6 +92,34 @@ type TweetDraft = Omit<Tweet, 'id'> & {
   quoteTarget?: { id: string; createdBy: string };
   replySetting?: TweetReplySetting;
 };
+
+type TweetSubmissionSnapshot = {
+  text: string;
+  selectedImages: FilesWithId;
+  imagesPreview: ImagesPreview;
+  selectedGifCard: TweetCard | null;
+  externalCard: TweetCard | null;
+  quoteTweet: TweetWithUser | null;
+  parent: { id: string; username: string } | undefined;
+  isReplying: boolean;
+  replySetting: TweetReplySetting;
+};
+
+type UndoTweetPending = {
+  snapshot: TweetSubmissionSnapshot;
+  expiresAt: number;
+  durationSeconds: number;
+};
+
+function getUndoTweetKind({
+  isReplying,
+  quoteTweet
+}: TweetSubmissionSnapshot): UndoTweetKind {
+  if (isReplying) return 'reply';
+  if (quoteTweet) return 'quote';
+
+  return 'tweet';
+}
 
 function getQuotedTweetPreview(tweet: TweetWithUser): EmbeddedTweet {
   return {
@@ -300,6 +333,61 @@ function TweetDraftsModal({
   );
 }
 
+function UndoTweetComposerStatus({
+  expiresAt,
+  durationSeconds,
+  onUndo,
+  onSendNow
+}: {
+  expiresAt: number;
+  durationSeconds: number;
+  onUndo: () => void;
+  onSendNow: () => void;
+}): JSX.Element {
+  const [now, setNow] = useState(Date.now());
+  const remainingRatio = Math.max(
+    0,
+    Math.min(1, (expiresAt - now) / (durationSeconds * 1000))
+  );
+  const progressDegrees = Math.round(remainingRatio * 360);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(Date.now()), 250);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className='mt-1 border-t border-light-border pt-2 dark:border-dark-border'>
+      <div className='flex min-h-[38px] items-center gap-3 overflow-hidden text-[15px] leading-5'>
+        <span
+          className='grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full'
+          style={{
+            background: `conic-gradient(var(--main-accent) ${progressDegrees}deg, rgba(83,100,113,0.28) 0deg)`
+          }}
+        >
+          <span className='h-[15px] w-[15px] rounded-full bg-main-background' />
+        </span>
+        <p className='min-w-0 flex-1 truncate font-bold'>Sending Tweet…</p>
+        <Button
+          className='accent-tab accent-bg-tab shrink-0 px-2 py-2 text-[14px] font-bold leading-5
+                     text-main-accent hover:bg-main-accent/10 active:bg-main-accent/20'
+          onClick={onSendNow}
+        >
+          Send now
+        </Button>
+        <Button
+          className='shrink-0 rounded-full bg-main-accent px-4 py-2 text-[14px] font-bold
+                     leading-5 text-white hover:bg-main-accent/90 active:bg-main-accent/80'
+          onClick={onUndo}
+        >
+          Undo
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function Input({
   modal,
   reply,
@@ -331,12 +419,17 @@ export function Input({
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [availableDrafts, setAvailableDrafts] = useState<LocalTweetDraft[]>([]);
   const [hydratedDraftId, setHydratedDraftId] = useState<string | null>(null);
+  const [pendingUndoTweet, setPendingUndoTweet] =
+    useState<UndoTweetPending | null>(null);
 
   const { user } = useAuth();
   const activeUser = user as User;
   const { id: userId, name, username, photoURL } = activeUser;
+  const { undoTweetSettings } = useUndoTweetSettings();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const undoTweetTimeoutRef = useRef<number | null>(null);
+  const pendingUndoTweetRef = useRef<UndoTweetPending | null>(null);
   const quotedTweetId = quoteTweet?.id ?? null;
   const draftScope = useMemo<TweetDraftScope>(
     () => ({
@@ -492,28 +585,56 @@ export function Input({
     refreshAvailableDrafts();
   }, [draftScope, refreshAvailableDrafts]);
 
-  const sendTweet = async (): Promise<void> => {
-    inputRef.current?.blur();
+  const clearUndoTweetTimer = (): void => {
+    if (!undoTweetTimeoutRef.current) return;
 
+    window.clearTimeout(undoTweetTimeoutRef.current);
+    undoTweetTimeoutRef.current = null;
+  };
+
+  const clearPendingUndoTweet = (): void => {
+    clearUndoTweetTimer();
+    pendingUndoTweetRef.current = null;
+    setPendingUndoTweet(null);
+  };
+
+  const createSubmissionSnapshot = (): TweetSubmissionSnapshot => ({
+    text: submittedText,
+    selectedImages: [...selectedImages],
+    imagesPreview: imagesPreview.map((preview) => ({ ...preview })),
+    selectedGifCard,
+    externalCard: activeExternalCard,
+    quoteTweet: activeQuoteTweet,
+    parent,
+    isReplying: !!(reply ?? replyModal),
+    replySetting
+  });
+
+  const publishTweet = async (
+    snapshot: TweetSubmissionSnapshot
+  ): Promise<void> => {
+    inputRef.current?.blur();
     setLoading(true);
 
     try {
-      const isReplying = reply ?? replyModal;
-
-      const quotedTweet = activeQuoteTweet
-        ? getQuotedTweetPreview(activeQuoteTweet)
+      const quotedTweet = snapshot.quoteTweet
+        ? getQuotedTweetPreview(snapshot.quoteTweet)
         : null;
-      const uploadedImages = selectedGifCard
-        ? imagesPreview
-        : await uploadImages(userId, selectedImages, imagesPreview);
+      const uploadedImages = snapshot.selectedGifCard
+        ? snapshot.imagesPreview
+        : await uploadImages(
+            userId,
+            snapshot.selectedImages,
+            snapshot.imagesPreview
+          );
 
       const tweetData: WithFieldValue<TweetDraft> = {
-        text: submittedText || null,
+        text: snapshot.text || null,
         langs: [],
-        parent: isReplying && parent ? parent : null,
+        parent: snapshot.isReplying && snapshot.parent ? snapshot.parent : null,
         images: uploadedImages,
         mediaWarning: null,
-        card: activeExternalCard,
+        card: snapshot.externalCard,
         quotedTweet,
         userLikes: [],
         createdBy: userId,
@@ -523,9 +644,12 @@ export function Input({
         userRetweets: [],
         userQuotes: 0,
         bookmarkCount: 0,
-        replySetting: isReplying ? undefined : replySetting,
-        quoteTarget: activeQuoteTweet
-          ? { id: activeQuoteTweet.id, createdBy: activeQuoteTweet.createdBy }
+        replySetting: snapshot.isReplying ? undefined : snapshot.replySetting,
+        quoteTarget: snapshot.quoteTweet
+          ? {
+              id: snapshot.quoteTweet.id,
+              createdBy: snapshot.quoteTweet.createdBy
+            }
           : undefined
       };
 
@@ -538,7 +662,8 @@ export function Input({
         ),
         manageTotalTweets('increment', userId),
         tweetData.images && manageTotalPhotos('increment', userId),
-        isReplying && manageReply('increment', parent?.id as string)
+        snapshot.isReplying &&
+          manageReply('increment', snapshot.parent?.id as string)
       ]);
 
       const tweetSnapshot = await getDoc(tweetRef);
@@ -579,6 +704,62 @@ export function Input({
       setLoading(false);
     }
   };
+
+  const queueUndoTweet = (snapshot: TweetSubmissionSnapshot): void => {
+    inputRef.current?.blur();
+    setLoading(true);
+
+    const pendingTweet: UndoTweetPending = {
+      snapshot,
+      expiresAt: Date.now() + undoTweetSettings.intervalSeconds * 1000,
+      durationSeconds: undoTweetSettings.intervalSeconds
+    };
+
+    pendingUndoTweetRef.current = pendingTweet;
+    setPendingUndoTweet(pendingTweet);
+
+    undoTweetTimeoutRef.current = window.setTimeout(
+      () => sendPendingUndoTweet(),
+      undoTweetSettings.intervalSeconds * 1000
+    );
+  };
+
+  const sendPendingUndoTweet = (): void => {
+    const pendingTweet = pendingUndoTweetRef.current;
+
+    if (!pendingTweet) return;
+
+    clearPendingUndoTweet();
+    void publishTweet(pendingTweet.snapshot);
+  };
+
+  const undoPendingTweet = (): void => {
+    if (!pendingUndoTweetRef.current) return;
+
+    clearPendingUndoTweet();
+    setLoading(false);
+    inputRef.current?.focus();
+  };
+
+  const sendTweet = async (): Promise<void> => {
+    const snapshot = createSubmissionSnapshot();
+    const undoTweetKind = getUndoTweetKind(snapshot);
+
+    if (shouldUseUndoTweet(undoTweetSettings, undoTweetKind)) {
+      queueUndoTweet(snapshot);
+      return;
+    }
+
+    await publishTweet(snapshot);
+  };
+
+  useEffect(
+    () => () => {
+      clearPendingUndoTweet();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   const handleImageUpload = (
     e: ChangeEvent<HTMLInputElement> | ClipboardEvent<HTMLTextAreaElement>
@@ -794,11 +975,11 @@ export function Input({
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    if (!isValidTweet || loading) return;
+    if (!isValidTweet || loading || pendingUndoTweet) return;
     void sendTweet();
   };
 
-  const handleFocus = (): void => setVisited(!loading);
+  const handleFocus = (): void => setVisited(!loading && !pendingUndoTweet);
 
   const formId = useId();
 
@@ -809,6 +990,7 @@ export function Input({
   const shouldCompactQuotedTweetPreview =
     isUploadingImages || !!activeExternalCard;
   const showModalHeader = !!modal && !replyModal && !!closeModal;
+  const isUndoTweetPending = !!pendingUndoTweet;
 
   const inputLength = useMemo(
     () =>
@@ -857,7 +1039,16 @@ export function Input({
           >
             <HeroIcon className='h-5 w-5' iconName='XMarkIcon' />
           </Button>
-          {!quoteTweet && (
+          {isUndoTweetPending ? (
+            <Button
+              className='accent-tab h-9 rounded-full bg-main-accent px-4 py-0 text-[15px]
+                         font-bold leading-5 text-white hover:bg-main-accent/90
+                         active:bg-main-accent/75'
+              onClick={sendPendingUndoTweet}
+            >
+              Send now
+            </Button>
+          ) : !quoteTweet ? (
             <Button
               className='accent-tab accent-bg-tab px-4 py-2 text-[15px] font-bold
                          leading-5 text-main-accent hover:bg-main-accent/10
@@ -866,7 +1057,7 @@ export function Input({
             >
               Unsent Tweets
             </Button>
-          )}
+          ) : null}
         </header>
       )}
       {children}
@@ -897,7 +1088,8 @@ export function Input({
             ? 'pb-4'
             : 'border-b border-light-border dark:border-dark-border',
           compactReply && 'pr-5',
-          (disabled || loading) && 'pointer-events-none opacity-50'
+          (disabled || (loading && !isUndoTweetPending)) &&
+            'pointer-events-none opacity-50'
         )}
         htmlFor={formId}
       >
@@ -915,6 +1107,7 @@ export function Input({
             formId={formId}
             visited={visited}
             loading={loading}
+            readOnly={isUndoTweetPending}
             inputRef={inputRef}
             replyModal={replyModal}
             inputValue={inputValue}
@@ -923,6 +1116,16 @@ export function Input({
             isUploadingImages={isUploadingImages}
             setReplySetting={setReplySetting}
             sendTweet={sendTweet}
+            footerStatus={
+              pendingUndoTweet ? (
+                <UndoTweetComposerStatus
+                  expiresAt={pendingUndoTweet.expiresAt}
+                  durationSeconds={pendingUndoTweet.durationSeconds}
+                  onUndo={undoPendingTweet}
+                  onSendNow={sendPendingUndoTweet}
+                />
+              ) : undefined
+            }
             handleHashtagSelect={handleHashtagSelect}
             handleMentionSelect={handleMentionSelect}
             handleFocus={handleFocus}
@@ -963,6 +1166,7 @@ export function Input({
                 inputLength={inputLength}
                 isValidTweet={isValidTweet}
                 isCharLimitExceeded={isCharLimitExceeded}
+                hideSubmit={isUndoTweetPending}
                 handleImageUpload={handleImageUpload}
                 handleEmojiSelect={handleEmojiSelect}
                 handleGifSelect={handleGifSelect}
