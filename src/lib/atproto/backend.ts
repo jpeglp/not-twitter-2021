@@ -18,6 +18,9 @@ import {
   type AppBskyFeedPost,
   type AppBskyFeedThreadgate,
   type AppBskyNotificationListNotifications,
+  type AppBskyUnspeccedDefs,
+  type AppBskyUnspeccedGetPostThreadOtherV2,
+  type AppBskyUnspeccedGetPostThreadV2,
   type AppBskyVideoDefs,
   type AppBskyVideoGetUploadLimits,
   type AtpSessionData,
@@ -115,7 +118,11 @@ const BSKY_PROFILE_IMAGE_MIME_TYPE = 'image/jpeg';
 const BSKY_PROFILE_IMAGE_ACCEPTED_TYPES = /^image\/(?:jpe?g|png)$/i;
 const BSKY_POST_IMAGE_ACCEPTED_TYPES = /^image\/(?:jpe?g|png|webp)$/i;
 const BSKY_MEDIA_POST_VISIBILITY_RETRIES = 8;
-const BSKY_THREAD_REPLY_DEPTH = 25;
+const BSKY_THREAD_REPLY_DEPTH = 100;
+const BSKY_THREAD_FULL_REPLY_DEPTH = 1000;
+const BSKY_THREAD_FULL_PARENT_HEIGHT = 1000;
+const BSKY_READER_AUTHOR_FEED_LIMIT = 100;
+const BSKY_READER_AUTHOR_FEED_MAX_PAGES = 10;
 const BSKY_THREAD_PARENT_PAGE_SIZE = 6;
 const SERVICE_AUTH_TOKEN_TTL_SECONDS = 55;
 const BSKY_CHAT_ACCESS_MESSAGE =
@@ -305,6 +312,10 @@ type ThreadItem =
   | AppBskyFeedDefs.ThreadViewPost
   | AppBskyFeedDefs.BlockedPost
   | AppBskyFeedDefs.NotFoundPost;
+
+type ThreadV2Item =
+  | AppBskyUnspeccedGetPostThreadV2.ThreadItem
+  | AppBskyUnspeccedGetPostThreadOtherV2.ThreadItem;
 
 type HiddenThreadAuthors = Map<string, TweetUnavailableReason>;
 
@@ -5823,6 +5834,297 @@ function mapThreadReplies(
   };
 }
 
+function getThreadV2Post(item: ThreadV2Item): AppBskyFeedDefs.PostView | null {
+  if (!isThreadRecord(item.value)) return null;
+
+  const value = item.value as { post?: unknown };
+  if (!AppBskyFeedDefs.isPostView(value.post) || !isThreadRecord(value.post))
+    return null;
+
+  const post = value.post as AppBskyFeedDefs.PostView;
+  return typeof post.uri === 'string' &&
+    typeof post.cid === 'string' &&
+    typeof post.indexedAt === 'string' &&
+    isThreadRecord(post.author) &&
+    isThreadRecord(post.record)
+    ? post
+    : null;
+}
+
+function getThreadV2PostValue(
+  item: ThreadV2Item
+): AppBskyUnspeccedDefs.ThreadItemPost | null {
+  if (!isThreadRecord(item.value)) return null;
+  if (!('post' in item.value)) return null;
+
+  return item.value as AppBskyUnspeccedDefs.ThreadItemPost;
+}
+
+function getThreadV2PostCreatedAtTime(item: ThreadV2Item): number {
+  const post = getThreadV2Post(item);
+
+  return post
+    ? getPostCreatedAt(post.record, post.indexedAt).toDate().getTime()
+    : Number.MAX_SAFE_INTEGER;
+}
+
+function compareThreadV2Items(a: ThreadV2Item, b: ThreadV2Item): number {
+  return (
+    a.depth - b.depth ||
+    getThreadV2PostCreatedAtTime(a) - getThreadV2PostCreatedAtTime(b) ||
+    a.uri.localeCompare(b.uri)
+  );
+}
+
+function mapAuthorThreadRepliesFromThreadV2Items(
+  items: ThreadV2Item[],
+  rootTweet: TweetWithUser,
+  moderationOpts?: ModerationOpts | null
+): TweetWithUser[] {
+  const parent = { id: rootTweet.id, username: rootTweet.user.username };
+  const seenIds = new Set<string>();
+  const replies: TweetWithUser[] = [];
+
+  for (const item of [...items].sort(compareThreadV2Items)) {
+    if (item.depth <= 0 || item.uri === uriFromPostId(rootTweet.id)) continue;
+
+    const value = getThreadV2PostValue(item);
+    const post = getThreadV2Post(item);
+    if (!value || !post) continue;
+    if (!value.opThread || value.hiddenByThreadgate) continue;
+    if (post.author.did !== rootTweet.createdBy) continue;
+    if (isModerationFilteredWithoutTombstone(post, moderationOpts ?? null))
+      continue;
+
+    const id = postIdFromUri(post.uri);
+    if (seenIds.has(id) || locallyDeletedTweetIds.has(id)) continue;
+
+    seenIds.add(id);
+    replies.push(mapPostWithUser(post, parent));
+  }
+
+  return replies;
+}
+
+function mergeThreadRepliesByFullThreadOrder(
+  baseReplies: TweetWithUser[],
+  fullReplies: TweetWithUser[]
+): TweetWithUser[] {
+  const baseById = new Map(baseReplies.map((reply) => [reply.id, reply]));
+  const hasNewReply = fullReplies.some((reply) => !baseById.has(reply.id));
+
+  if (!hasNewReply && fullReplies.length <= baseReplies.length)
+    return baseReplies;
+
+  const seenIds = new Set<string>();
+  const merged = fullReplies.map((reply) => {
+    seenIds.add(reply.id);
+    return baseById.get(reply.id) ?? reply;
+  });
+
+  for (const reply of baseReplies) {
+    if (!seenIds.has(reply.id)) merged.push(reply);
+  }
+
+  return merged;
+}
+
+function getReaderModeRootTweet(page: TweetThreadPage): TweetWithUser {
+  return page.parents[0] ?? page.tweet;
+}
+
+function getReplyRefUri(
+  record: unknown,
+  refKey: 'root' | 'parent'
+): string | null {
+  if (!isThreadRecord(record)) return null;
+
+  const { reply } = record;
+  if (!isThreadRecord(reply)) return null;
+
+  const ref = reply[refKey];
+  if (!isThreadRecord(ref)) return null;
+
+  return typeof ref.uri === 'string' ? ref.uri : null;
+}
+
+function getPostReplyRootUri(post: AppBskyFeedDefs.PostView): string | null {
+  return getReplyRefUri(post.record, 'root');
+}
+
+function getPostReplyParentUri(post: AppBskyFeedDefs.PostView): string | null {
+  return getReplyRefUri(post.record, 'parent');
+}
+
+function compareAuthorFeedItemsByCreatedAt(
+  a: ActorFeedPost,
+  b: ActorFeedPost
+): number {
+  return (
+    getPostCreatedAt(a.post.record, a.post.indexedAt).toDate().getTime() -
+      getPostCreatedAt(b.post.record, b.post.indexedAt).toDate().getTime() ||
+    a.post.uri.localeCompare(b.post.uri)
+  );
+}
+
+function getAuthorFeedItemParent(
+  item: ActorFeedPost,
+  rootTweet: TweetWithUser
+): { id: string; username: string } | null {
+  if (item.reply?.parent && AppBskyFeedDefs.isPostView(item.reply.parent))
+    return {
+      id: postIdFromUri(item.reply.parent.uri),
+      username: item.reply.parent.author.handle
+    };
+
+  const parentUri = getPostReplyParentUri(item.post);
+
+  return parentUri
+    ? { id: postIdFromUri(parentUri), username: rootTweet.user.username }
+    : null;
+}
+
+async function getReaderAuthorFeedItems(
+  actor: string
+): Promise<{ items: ActorFeedPost[]; moderationOpts: ModerationOpts | null }> {
+  const moderationOpts = await getSafeModerationOpts();
+  const items: ActorFeedPost[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < BSKY_READER_AUTHOR_FEED_MAX_PAGES; page++) {
+    const response = await getAppViewAgent().getAuthorFeed({
+      actor,
+      filter: 'posts_with_replies',
+      limit: BSKY_READER_AUTHOR_FEED_LIMIT,
+      cursor
+    });
+
+    items.push(...response.data.feed);
+    cursor = response.data.cursor;
+
+    if (!cursor) break;
+  }
+
+  return { items, moderationOpts };
+}
+
+function selectReaderThreadItemsFromAuthorFeed(
+  items: ActorFeedPost[],
+  rootUri: string,
+  authorDid: string,
+  moderationOpts: ModerationOpts | null
+): ActorFeedPost[] {
+  const candidates = items
+    .filter(({ post }) => {
+      if (post.author.did !== authorDid) return false;
+      if (post.uri === rootUri) return false;
+      if (getPostReplyRootUri(post) !== rootUri) return false;
+      return !isModerationFilteredWithoutTombstone(post, moderationOpts);
+    })
+    .sort(compareAuthorFeedItemsByCreatedAt);
+  const byParentUri = new Map<string, ActorFeedPost[]>();
+
+  for (const item of candidates) {
+    const parentUri = getPostReplyParentUri(item.post);
+    if (!parentUri) continue;
+
+    const parentItems = byParentUri.get(parentUri) ?? [];
+    parentItems.push(item);
+    byParentUri.set(parentUri, parentItems);
+  }
+
+  byParentUri.forEach((parentItems) => {
+    parentItems.sort(compareAuthorFeedItemsByCreatedAt);
+  });
+
+  const selected: ActorFeedPost[] = [];
+  const seenUris = new Set<string>();
+  let currentUri = rootUri;
+
+  while (currentUri) {
+    const nextItem = byParentUri
+      .get(currentUri)
+      ?.find((item) => !seenUris.has(item.post.uri));
+
+    if (!nextItem) break;
+
+    selected.push(nextItem);
+    seenUris.add(nextItem.post.uri);
+    currentUri = nextItem.post.uri;
+  }
+
+  for (const item of candidates) {
+    if (seenUris.has(item.post.uri)) continue;
+
+    selected.push(item);
+    seenUris.add(item.post.uri);
+  }
+
+  return selected;
+}
+
+async function getFullThreadRepliesFromAuthorFeed(
+  page: TweetThreadPage
+): Promise<TweetWithUser[]> {
+  try {
+    const rootTweet = getReaderModeRootTweet(page);
+    const rootUri = uriFromPostId(rootTweet.id);
+    const { items, moderationOpts } = await getReaderAuthorFeedItems(
+      rootTweet.createdBy
+    );
+
+    return selectReaderThreadItemsFromAuthorFeed(
+      items,
+      rootUri,
+      rootTweet.createdBy,
+      moderationOpts
+    ).map((item) =>
+      mapPostWithUser(item.post, getAuthorFeedItemParent(item, rootTweet))
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function getFullThreadV2Items(uri: string): Promise<ThreadV2Item[]> {
+  const api = getAppViewAgent().app.bsky.unspecced;
+  const response = await api.getPostThreadV2({
+    anchor: uri,
+    above: true,
+    below: BSKY_THREAD_FULL_REPLY_DEPTH,
+    branchingFactor: BSKY_THREAD_FULL_REPLY_DEPTH,
+    sort: 'oldest'
+  });
+  const items: ThreadV2Item[] = [...response.data.thread];
+
+  if (response.data.hasOtherReplies) {
+    const otherResponse = await api
+      .getPostThreadOtherV2({ anchor: uri })
+      .catch(() => null);
+
+    if (otherResponse) items.push(...otherResponse.data.thread);
+  }
+
+  return items;
+}
+
+async function getFullThreadRepliesFromThreadV2(
+  page: TweetThreadPage,
+  uri: string
+): Promise<TweetWithUser[]> {
+  try {
+    const moderationOpts = await getSafeModerationOpts();
+    const items = await getFullThreadV2Items(uri);
+    return mapAuthorThreadRepliesFromThreadV2Items(
+      items,
+      page.tweet,
+      moderationOpts
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function getThreadWithPublicSkeleton(
   thread: unknown,
   hiddenAuthors: HiddenThreadAuthors,
@@ -8223,8 +8525,12 @@ export async function getTweet(id: string): Promise<Tweet | null> {
   return mapPostWithUser(post);
 }
 
-export async function getTweetThread(
-  id: string
+async function getTweetThreadWithDepth(
+  id: string,
+  {
+    depth = BSKY_THREAD_REPLY_DEPTH,
+    parentHeight = BSKY_THREAD_PARENT_PAGE_SIZE + 1
+  }: { depth?: number; parentHeight?: number } = {}
 ): Promise<TweetThreadPage | null> {
   if (!agent) return null;
   if (!id || id === 'null') return null;
@@ -8234,8 +8540,8 @@ export async function getTweetThread(
   const moderationOpts = await getSafeModerationOpts();
   const threadParams = {
     uri,
-    depth: BSKY_THREAD_REPLY_DEPTH,
-    parentHeight: BSKY_THREAD_PARENT_PAGE_SIZE + 1
+    depth,
+    parentHeight
   };
 
   try {
@@ -8288,6 +8594,37 @@ export async function getTweetThread(
     if (isRecordNotFoundError(error)) return null;
     throw error;
   }
+}
+
+export async function getTweetThread(
+  id: string
+): Promise<TweetThreadPage | null> {
+  return getTweetThreadWithDepth(id);
+}
+
+export async function getFullTweetThread(
+  id: string
+): Promise<TweetThreadPage | null> {
+  const page = await getTweetThreadWithDepth(id, {
+    depth: BSKY_THREAD_FULL_REPLY_DEPTH,
+    parentHeight: BSKY_THREAD_FULL_PARENT_HEIGHT
+  });
+
+  if (!page) return null;
+
+  const [fullThreadReplies, authorFeedThreadReplies] = await Promise.all([
+    getFullThreadRepliesFromThreadV2(page, uriFromPostId(id)),
+    getFullThreadRepliesFromAuthorFeed(page)
+  ]);
+  const mergedThreadReplies = mergeThreadRepliesByFullThreadOrder(
+    mergeThreadRepliesByFullThreadOrder(page.threadReplies, fullThreadReplies),
+    authorFeedThreadReplies
+  );
+
+  return {
+    ...page,
+    threadReplies: filterDeletedTweets(mergedThreadReplies)
+  };
 }
 
 export async function getTweetThreadParentsPage(

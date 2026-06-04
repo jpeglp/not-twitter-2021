@@ -7,6 +7,11 @@ import {
   type UndoTweetInterval,
   type UndoTweetKind
 } from '@lib/hooks/use-undo-tweet-settings';
+import {
+  readerTextSizes,
+  useNotTwitterBlueSettings,
+  type NotTwitterBlueSettings
+} from '@lib/hooks/use-not-twitter-blue-settings';
 import { Button } from '@components/ui/button';
 import { CustomIcon } from '@components/ui/custom-icon';
 import { HeroIcon } from '@components/ui/hero-icon';
@@ -31,6 +36,15 @@ const undoTweetKindLabels: Record<
     title: 'Threads',
     description: 'Multiple Tweets sent together.'
   }
+};
+
+const readerTextSizeLabels: Record<
+  NotTwitterBlueSettings['readerTextSize'],
+  string
+> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large'
 };
 
 type ToggleProps = {
@@ -133,6 +147,12 @@ function NotTwitterBlueLanding({
 }: {
   openUndoTweet: () => void;
 }): JSX.Element {
+  const {
+    notTwitterBlueSettings,
+    setReaderModeEnabled,
+    setReaderTextSize
+  } = useNotTwitterBlueSettings();
+
   return (
     <>
       <header className='flex h-[53px] items-center border-b border-light-border px-4 dark:border-dark-border'>
@@ -153,6 +173,57 @@ function NotTwitterBlueLanding({
           }
           onClick={openUndoTweet}
         />
+        <SettingsRow
+          title='Reader Mode'
+          description='Turn long Tweet threads into a continuous reading view.'
+          icon={
+            <HeroIcon
+              className='h-8 w-8'
+              iconName='BookOpenIcon'
+            />
+          }
+        >
+          <Toggle
+            checked={notTwitterBlueSettings.readerMode}
+            label='Reader Mode'
+            onChange={(): void =>
+              setReaderModeEnabled(!notTwitterBlueSettings.readerMode)
+            }
+          />
+        </SettingsRow>
+        <SettingsRow
+          title='Reader text size'
+          description='Choose the text size used while reading threads.'
+          icon={
+            <span className='text-[24px] font-extrabold leading-8'>
+              Aa
+            </span>
+          }
+        >
+          <div
+            className='flex shrink-0 rounded-full border border-light-border p-0.5
+                       dark:border-dark-border'
+          >
+            {readerTextSizes.map((size) => (
+              <Button
+                className={cn(
+                  `rounded-full px-3 py-1.5 text-[14px] font-bold leading-5
+                   transition`,
+                  notTwitterBlueSettings.readerTextSize === size
+                    ? 'bg-main-accent text-white'
+                    : `text-light-secondary hover:bg-light-primary/5
+                       active:bg-light-primary/10 dark:text-dark-secondary
+                       dark:hover:bg-dark-primary/5 dark:active:bg-dark-primary/10`
+                )}
+                type='button'
+                onClick={(): void => setReaderTextSize(size)}
+                key={size}
+              >
+                {readerTextSizeLabels[size]}
+              </Button>
+            ))}
+          </div>
+        </SettingsRow>
       </section>
     </>
   );

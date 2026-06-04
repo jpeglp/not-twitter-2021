@@ -65,6 +65,8 @@ type InputOptionsProps = {
   isValidTweet: boolean;
   isCharLimitExceeded: boolean;
   hideSubmit?: boolean;
+  canAddThreadItem?: boolean;
+  onAddThreadItem?: () => void;
   handleImageUpload: (
     e: ChangeEvent<HTMLInputElement> | ClipboardEvent<HTMLTextAreaElement>
   ) => void;
@@ -80,6 +82,8 @@ export function InputOptions({
   isValidTweet,
   isCharLimitExceeded,
   hideSubmit,
+  canAddThreadItem,
+  onAddThreadItem,
   handleImageUpload,
   handleEmojiSelect,
   handleGifSelect
@@ -190,10 +194,11 @@ export function InputOptions({
               <Button
                 className='group relative hidden rounded-full border border-light-line-reply p-[1px]
                            text-main-accent dark:border-light-secondary xs:block'
-                disabled
+                onClick={onAddThreadItem}
+                disabled={!canAddThreadItem}
               >
                 <HeroIcon className='h-5 w-5' iconName='PlusIcon' />
-                <ToolTip tip='Add' modal={modal} />
+                <ToolTip tip='Add another Tweet' modal={modal} />
               </Button>
             </>
           )}
