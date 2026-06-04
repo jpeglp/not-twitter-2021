@@ -56,12 +56,65 @@
     --accent-orange: 255 122 0;
     --accent-green: 0 184 122;
   }
+
+  //@bsky.app to twitter images
  img[src="https://cdn.bsky.app/img/banner/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreichzyovokfzmymz36p5jibbjrhsur6n7hjnzxrpbt5jaydp2szvna@jpeg"] {
   content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-banner.png");
   display: inline-block;
   width: auto;
   height: auto;
 }
+
+ img[src="https://cdn.bsky.app/img/avatar/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreihwihm6kpd6zuwhhlro75p5qks5qtrcu55jp3gddbfjsieiv7wuka"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-avatar.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+
+//@safety.bsky.app to twitter safety images
+ img[src="https://cdn.bsky.app/img/avatar/plain/did:plc:eon2iu7v3x2ukgxkqaf7e5np/bafkreih7mgyv6dugcguewqnuev64i7jsljhtrr6olfadmxq2dasfb7woam"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-avatar.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+
+ img[src="https://cdn.bsky.app/img/banner/plain/did:plc:eon2iu7v3x2ukgxkqaf7e5np/bafkreihqiqhobrgb45oe2szs3474er5kjnrizsp5d2waidsirolkzpsblm@jpeg"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/safety.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+ }
+
+//@support.bsky.team to twitter support images
+ img[src="https://cdn.bsky.app/img/avatar/plain/did:plc:oc6vwdlmk2kqyida5i74d3p5/bafkreiam7csw2k4bj6sgxe4fkg5nvvglun7yz4rxs2szvs6a5tbv5ydzgq"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-avatar.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+ img[src="https://cdn.bsky.app/img/banner/plain/did:plc:oc6vwdlmk2kqyida5i74d3p5/bafkreiexpgkc5d4ehebgba3egeytwht2inbey42v5heww7akgyhie4lklu@jpeg"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/support.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+ }
+
+//@jp.bsky.app to twitter japan images
+ img[src="https://cdn.bsky.app/img/avatar/plain/did:plc:ry3hbexak5ytsum7aazhpkbv/bafkreienc27b7pfsjflwvh645zh7ywb3ruwgshwqziv3ilo5mqsksjnl3i"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/jp-twitter-avatar.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+ img[src="https://cdn.bsky.app/img/banner/plain/did:plc:ry3hbexak5ytsum7aazhpkbv/bafkreid2u5md56vpo5xabs6tu3bbscf3zgfzbwxhkh3wedrh46lpvnzloe@jpeg"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/jp-twitter-banner.png");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+
   a,
   input,
   button,
