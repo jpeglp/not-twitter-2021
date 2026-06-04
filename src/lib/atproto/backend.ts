@@ -4858,11 +4858,7 @@ function stripReaderMarkdownPreamble(text: string): string {
     if (/^title:\s+/i.test(line)) sawTitle = true;
     if (/^url source:\s+/i.test(line)) sawURLSource = true;
 
-    if (
-      /^markdown content:\s*$/i.test(line) &&
-      sawTitle &&
-      sawURLSource
-    )
+    if (/^markdown content:\s*$/i.test(line) && sawTitle && sawURLSource)
       return lines
         .slice(index + 1)
         .join('\n')
@@ -4938,9 +4934,7 @@ async function fetchStandardSiteArticle(
 
   if (!documentRecord) return null;
 
-  const textContent = getStandardSiteDocumentText(documentRecord);
-
-  if (!textContent) return null;
+  const textContent = getStandardSiteDocumentText(documentRecord) ?? '';
 
   const documentURI =
     uris.find((uri) =>
@@ -5000,7 +4994,8 @@ function getExternalSourceCardData(
     url: source.uri,
     title: source.title,
     description: source.description ?? null,
-    icon: source.icon ?? null
+    icon: source.icon ?? null,
+    theme: isPlainObject(source.theme) ? source.theme : null
   };
 }
 
@@ -7118,7 +7113,9 @@ function subscribedPostNotificationMatchesActivityPreferences(
 ): boolean {
   if (notification.reason !== 'subscribed-post') return true;
 
-  const stored = getStoredActivityNotificationCategories(notification.author.did);
+  const stored = getStoredActivityNotificationCategories(
+    notification.author.did
+  );
   if (!stored) return true;
 
   const categories = normalizeActivityNotificationCategories(stored);

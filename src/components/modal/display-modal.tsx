@@ -6,7 +6,8 @@ import { InputThemeRadio } from '@components/input/input-theme-radio';
 import { Button } from '@components/ui/button';
 import { UserAvatar } from '@components/user/user-avatar';
 import { UserName } from '@components/user/user-name';
-import type { Theme, Accent } from '@lib/types/theme';
+import type { ChangeEvent } from 'react';
+import type { Theme, Accent, FontSize } from '@lib/types/theme';
 
 type DisplayModalProps = {
   closeModal: () => void;
@@ -33,6 +34,8 @@ const accentsColor: Readonly<Accent[]> = [
   'orange',
   'green'
 ];
+
+const fontSizeSteps: Readonly<FontSize[]> = ['xs', 'sm', 'md', 'lg', 'xl'];
 
 function DisplayToggle({
   checked,
@@ -70,6 +73,76 @@ function DisplayToggle({
         />
       </span>
     </button>
+  );
+}
+
+function DisplayFontSizeControl(): JSX.Element {
+  const { fontSize, changeFontSize } = useTheme();
+  const activeIndex = Math.max(0, fontSizeSteps.indexOf(fontSize));
+  const progress = `${(activeIndex / (fontSizeSteps.length - 1)) * 100}%`;
+
+  const handleFontSizeChange = ({
+    target: { value }
+  }: ChangeEvent<HTMLInputElement>): void => {
+    const nextFontSize = fontSizeSteps[Number(value)];
+
+    if (nextFontSize) changeFontSize(nextFontSize);
+  };
+
+  return (
+    <div className='flex w-full flex-col gap-1'>
+      <label
+        className='text-sm font-bold text-light-secondary dark:text-dark-secondary'
+        htmlFor='display-font-size'
+      >
+        Font size
+      </label>
+      <div className='hover-animation rounded-2xl bg-main-sidebar-background px-4 py-4'>
+        <div className='flex items-center gap-4'>
+          <span className='shrink-0 text-sm font-bold leading-none'>Aa</span>
+          <div className='relative h-8 flex-1'>
+            <div
+              className='absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full
+                         bg-light-border dark:bg-dark-border'
+              aria-hidden='true'
+            >
+              <span
+                className='block h-full rounded-full bg-main-accent'
+                style={{ width: progress }}
+              />
+            </div>
+            <div
+              className='pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2
+                         justify-between'
+              aria-hidden='true'
+            >
+              {fontSizeSteps.map((step, index) => (
+                <span
+                  className={`h-3 w-3 rounded-full border-2 border-main-sidebar-background
+                              ${
+                                index <= activeIndex
+                                  ? 'bg-main-accent'
+                                  : 'bg-light-line-reply dark:bg-dark-border'
+                              }`}
+                  key={step}
+                />
+              ))}
+            </div>
+            <input
+              className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+              id='display-font-size'
+              type='range'
+              min={0}
+              max={fontSizeSteps.length - 1}
+              step={1}
+              value={activeIndex}
+              onChange={handleFontSizeChange}
+            />
+          </div>
+          <span className='shrink-0 text-xl font-bold leading-none'>Aa</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -112,7 +185,7 @@ export function DisplayModal({ closeModal }: DisplayModalProps): JSX.Element {
                 <p>26m</p>
               </div>
             </div>
-            <p className='whitespace-pre-line break-words'>
+            <p className='tweet-display-font-size whitespace-pre-line break-words'>
               At the heart of Not Twitter are short messages called Tweets —
               just like this one — which can include photos, videos, links,
               text, hashtags, and mentions.
@@ -120,6 +193,7 @@ export function DisplayModal({ closeModal }: DisplayModalProps): JSX.Element {
           </div>
         </div>
       </article>
+      <DisplayFontSizeControl />
       <div className='flex w-full flex-col gap-1'>
         <p className='text-sm font-bold text-light-secondary dark:text-dark-secondary'>
           Visual tweaks
@@ -163,8 +237,9 @@ export function DisplayModal({ closeModal }: DisplayModalProps): JSX.Element {
           Background
         </p>
         <div
-          className='hover-animation grid grid-rows-3 gap-3 rounded-2xl bg-main-sidebar-background
-                     px-4 py-3 xs:grid-cols-3 xs:grid-rows-none'
+          className='hover-animation grid grid-rows-3 gap-3 overflow-visible rounded-2xl
+                     bg-main-sidebar-background px-4 pb-5 pt-3 xs:grid-cols-3
+                     xs:grid-rows-none'
         >
           {themes.map(([themeType, label]) => (
             <InputThemeRadio type={themeType} label={label} key={themeType} />

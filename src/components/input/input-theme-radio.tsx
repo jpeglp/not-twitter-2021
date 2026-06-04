@@ -56,15 +56,18 @@ export function InputThemeRadio({
   return (
     <label
       className={cn(
-        `flex cursor-pointer items-center gap-2 rounded p-3 font-bold ring-main-accent transition
-         duration-200 [&:has(div>input:checked)]:ring-2`,
+        `relative flex min-h-[72px] cursor-pointer items-center gap-2 overflow-visible rounded-xl
+         border border-light-border/70 p-3 pb-4 font-bold ring-main-accent ring-offset-2
+         ring-offset-main-sidebar-background transition duration-200
+         dark:border-dark-border/70 [&:has(div>input:checked)]:border-main-accent
+         [&:has(div>input:checked)]:ring-2`,
         textColor,
         backgroundColor,
         hoverBackgroundColor
       )}
       htmlFor={type}
     >
-      <div className='hover-animation flex h-10 w-10 items-center justify-center rounded-full'>
+      <div className='hover-animation flex h-10 w-10 shrink-0 items-center justify-center rounded-full'>
         <input
           className='peer absolute h-0 w-0 opacity-0'
           id={type}
@@ -76,7 +79,7 @@ export function InputThemeRadio({
         />
         <i
           className={cn(
-            `flex h-5 w-5 items-center justify-center rounded-full 
+            `relative z-10 flex h-5 w-5 items-center justify-center rounded-full
              border-2 border-[#B9CAD3] text-white transition
              duration-200 peer-checked:border-transparent
              peer-checked:bg-main-accent peer-checked:inner:opacity-100`,

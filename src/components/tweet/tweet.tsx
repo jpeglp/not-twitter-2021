@@ -168,7 +168,6 @@ function TweetComponent(tweet: TweetProps): JSX.Element {
 
   const tweetLink = getTweetPath(tweetId, username);
   const displayCard = card ?? createYouTubeCardFromText(text);
-  const hideQuotedTweetMedia = !!images?.length || !!displayCard;
 
   const userId = user?.id ?? '';
 
@@ -401,7 +400,6 @@ function TweetComponent(tweet: TweetProps): JSX.Element {
                 quotedTweet={quotedTweet}
                 articleAuthor={tweetUserData}
                 articleTweetPath={tweetLink}
-                hideQuotedTweetMedia={hideQuotedTweetMedia}
               />
               <TweetReplyRestrictionIndicator
                 replySetting={replySetting}

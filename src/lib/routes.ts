@@ -219,6 +219,10 @@ export function getUserPath(username: string): string {
   return `/${encodeURIComponent(username)}`;
 }
 
+export function getProfileTweetSearchQuery(username: string): string {
+  return `from:${username.trim().replace(/^@+/, '')}`;
+}
+
 export function getUserTabPath(username: string, path?: string): string {
   return `${getUserPath(username)}${path ? `/${path}` : ''}`;
 }

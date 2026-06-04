@@ -28,6 +28,10 @@ function stripBasePath(pathname: string): string {
   return pathname;
 }
 
+function hasDynamicRouteSegment(pathname: string): boolean {
+  return pathname.split('/').some((segment) => /^\[.+\]$/.test(segment));
+}
+
 function normalizeRoutePath(path: string | null | undefined): string | null {
   if (!path) return null;
 
@@ -35,10 +39,18 @@ function normalizeRoutePath(path: string | null | undefined): string | null {
     const url = new URL(path, 'https://not-twitter.local');
     const pathname = stripBasePath(url.pathname).replace(/\/+$/g, '') || '/';
 
+    if (hasDynamicRouteSegment(pathname)) return null;
+
     return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
+}
+
+function getCurrentBrowserPath(fallbackPath: string): string {
+  if (typeof window === 'undefined') return fallbackPath;
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 function compactRouteHistory(history: readonly string[]): string[] {
@@ -136,7 +148,12 @@ export function RouteHistoryRecorder({
   const browserTraversalRef = useRef(false);
 
   useEffect(() => {
-    writeRouteHistory(updateRouteHistory(readRouteHistory(), router.asPath));
+    writeRouteHistory(
+      updateRouteHistory(
+        readRouteHistory(),
+        getCurrentBrowserPath(router.asPath)
+      )
+    );
     // This should run only for the route mounted with the app shell.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -151,7 +168,13 @@ export function RouteHistoryRecorder({
 
       browserTraversalRef.current = false;
       writeRouteHistory(
-        updateRouteHistory(readRouteHistory(), nextPath, { browserTraversal })
+        updateRouteHistory(
+          readRouteHistory(),
+          getCurrentBrowserPath(nextPath),
+          {
+            browserTraversal
+          }
+        )
       );
     };
 
@@ -174,7 +197,11 @@ export function useRouteBack(
 
   return useCallback((): void => {
     const history = readRouteHistory();
-    const targetPath = getRouteBackTarget(history, router.asPath, fallbackPath);
+    const targetPath = getRouteBackTarget(
+      history,
+      getCurrentBrowserPath(router.asPath),
+      fallbackPath
+    );
 
     writeRouteHistory(
       updateRouteHistory(history, targetPath, {

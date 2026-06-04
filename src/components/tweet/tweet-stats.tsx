@@ -77,6 +77,12 @@ export function TweetStats({
   const currentLikes = optimisticLikes.length;
   const currentTweets = optimisticRetweets.length;
   const currentQuotes = totalQuotes;
+  const visibleRetweets = viewTweet
+    ? currentTweets
+    : currentTweets + currentQuotes;
+  const totalVisibleRetweets = viewTweet
+    ? totalTweets
+    : totalTweets + totalQuotes;
   const currentBookmarks = optimisticBookmarkCount;
 
   useEffect(() => {
@@ -97,8 +103,8 @@ export function TweetStats({
   );
 
   const tweetMove = useMemo(
-    () => (totalTweets > currentTweets ? -25 : 25),
-    [totalTweets, currentTweets]
+    () => (totalVisibleRetweets > visibleRetweets ? -25 : 25),
+    [totalVisibleRetweets, visibleRetweets]
   );
 
   const quoteMove = useMemo(
@@ -299,7 +305,7 @@ export function TweetStats({
                          group-focus-visible:bg-accent-green/10 group-focus-visible:ring-accent-green/80'
           tip={tweetIsRetweeted ? 'Undo Retweet' : 'Retweet'}
           move={tweetMove}
-          stats={currentTweets}
+          stats={visibleRetweets}
           viewTweet={viewTweet}
           iconSizeClassName={iconSizeClassName}
           onRetweet={handleRetweet}

@@ -51,4 +51,16 @@ describe('route back history helpers', () => {
       '/explore'
     ]);
   });
+
+  it('drops Next.js dynamic route templates from remembered routes', () => {
+    expect(
+      updateRouteHistory(['/home', '/krouss.net', '/[id]/'], '/[id]/status/123')
+    ).toEqual(['/home', '/krouss.net']);
+    expect(
+      getRouteBackTarget(['/home', '/[id]/'], '/krouss.net/status/123')
+    ).toBe('/home');
+    expect(
+      getRouteBackTarget(['/[id]/'], '/krouss.net/status/123', '/krouss.net')
+    ).toBe('/krouss.net');
+  });
 });

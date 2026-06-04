@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { useState, useEffect, useRef, useId, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useId,
+  useMemo,
+  useCallback
+} from 'react';
+import { Dialog } from '@headlessui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import cn from 'clsx';
 import { toast } from 'react-hot-toast';
@@ -28,9 +36,20 @@ import {
 } from '@lib/hashtags';
 import { sleep } from '@lib/utils';
 import { getImagesData } from '@lib/validation';
+import {
+  deleteTweetDraft,
+  getTweetDraft,
+  getTweetDraftId,
+  getTweetDraftsForUser,
+  saveTweetDraft,
+  tweetDraftsChangedEvent,
+  type LocalTweetDraft,
+  type TweetDraftScope
+} from '@lib/tweet-drafts';
 import { createYouTubeCardFromText } from '@lib/youtube';
 import { UserAvatar } from '@components/user/user-avatar';
 import { TweetEmbed } from '@components/tweet/tweet-embed';
+import { Modal } from '@components/modal/modal';
 import { Button } from '@components/ui/button';
 import { HeroIcon } from '@components/ui/hero-icon';
 import { InputForm, fromTop } from './input-form';
@@ -151,6 +170,136 @@ function createTenorGifCard(gif: GifSelection): TweetCard {
   };
 }
 
+function formatDraftTime(updatedAt: number): string {
+  return new Intl.DateTimeFormat('en-gb', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(new Date(updatedAt));
+}
+
+function getDraftContextLabel({
+  type,
+  parentUsername
+}: LocalTweetDraft): string {
+  if (type === 'reply') return `Reply to @${parentUsername ?? 'user'}`;
+  if (type === 'quote') return 'Quote Tweet';
+
+  return 'Tweet';
+}
+
+function getDraftPreviewText({ text, gifCard }: LocalTweetDraft): string {
+  const trimmedText = text.trim();
+
+  if (trimmedText) return trimmedText;
+  if (gifCard) return gifCard.title || 'GIF';
+
+  return 'Draft';
+}
+
+function TweetDraftsModal({
+  open,
+  drafts,
+  currentDraftId,
+  closeModal,
+  selectDraft,
+  deleteDraft
+}: {
+  open: boolean;
+  drafts: LocalTweetDraft[];
+  currentDraftId: string | null;
+  closeModal: () => void;
+  selectDraft: (draft: LocalTweetDraft) => void;
+  deleteDraft: (draftId: string) => void;
+}): JSX.Element {
+  return (
+    <Modal
+      modalClassName='w-full max-w-xl overflow-hidden rounded-2xl bg-main-background text-light-primary shadow-xl dark:text-dark-primary'
+      open={open}
+      closeModal={closeModal}
+    >
+      <div
+        className='grid h-[53px] grid-cols-[48px,1fr,48px] items-center border-b
+                   border-light-border px-1 dark:border-dark-border'
+      >
+        <Button
+          className='dark-bg-tab group relative h-9 w-9 rounded-full p-0
+                     hover:bg-light-primary/10 active:bg-light-primary/20
+                     dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+          aria-label='Close'
+          onClick={closeModal}
+        >
+          <HeroIcon className='h-5 w-5' iconName='XMarkIcon' />
+        </Button>
+        <Dialog.Title className='text-center text-xl font-extrabold'>
+          Unsent Tweets
+        </Dialog.Title>
+        <span aria-hidden='true' />
+      </div>
+      <div className='max-h-[70vh] overflow-y-auto'>
+        {drafts.length ? (
+          drafts.map((draft) => {
+            const selected = draft.id === currentDraftId;
+
+            return (
+              <div
+                className='flex border-b border-light-border last:border-b-0 dark:border-dark-border'
+                key={draft.id}
+              >
+                <button
+                  className={cn(
+                    `accent-bg-tab flex min-w-0 flex-1 flex-col gap-1 px-4 py-3
+                     text-left hover:bg-light-primary/5 active:bg-light-primary/10
+                     dark:hover:bg-dark-primary/5 dark:active:bg-dark-primary/10`,
+                    selected && 'bg-main-accent/10'
+                  )}
+                  type='button'
+                  onClick={(): void => selectDraft(draft)}
+                >
+                  <div className='flex w-full min-w-0 items-center gap-2 text-[13px] text-light-secondary dark:text-dark-secondary'>
+                    <span className='font-bold text-light-primary dark:text-dark-primary'>
+                      {getDraftContextLabel(draft)}
+                    </span>
+                    <span aria-hidden='true'>&middot;</span>
+                    <span>{formatDraftTime(draft.updatedAt)}</span>
+                    {draft.gifCard && (
+                      <>
+                        <span aria-hidden='true'>&middot;</span>
+                        <span className='inline-flex items-center gap-1'>
+                          <HeroIcon className='h-4 w-4' iconName='GifIcon' />
+                          GIF
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className='max-h-12 overflow-hidden whitespace-pre-wrap break-words text-[15px] leading-6'>
+                    {getDraftPreviewText(draft)}
+                  </p>
+                </button>
+                <Button
+                  className='dark-bg-tab m-2 h-9 w-9 shrink-0 rounded-full p-0 text-light-secondary
+                             hover:bg-accent-red/10 hover:text-accent-red
+                             active:bg-accent-red/20 dark:text-dark-secondary'
+                  aria-label='Delete draft'
+                  title='Delete draft'
+                  onClick={(): void => deleteDraft(draft.id)}
+                >
+                  <HeroIcon className='h-5 w-5' iconName='TrashIcon' />
+                </Button>
+              </div>
+            );
+          })
+        ) : (
+          <div className='px-8 py-14 text-center'>
+            <p className='text-xl font-extrabold'>No unsent Tweets</p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 export function Input({
   modal,
   reply,
@@ -179,11 +328,30 @@ export function Input({
   const [visited, setVisited] = useState(false);
   const [replySetting, setReplySetting] =
     useState<TweetReplySetting>('everyone');
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [availableDrafts, setAvailableDrafts] = useState<LocalTweetDraft[]>([]);
+  const [hydratedDraftId, setHydratedDraftId] = useState<string | null>(null);
 
   const { user } = useAuth();
-  const { name, username, photoURL } = user as User;
+  const activeUser = user as User;
+  const { id: userId, name, username, photoURL } = activeUser;
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const quotedTweetId = quoteTweet?.id ?? null;
+  const draftScope = useMemo<TweetDraftScope>(
+    () => ({
+      userId,
+      type: quotedTweetId ? 'quote' : reply || replyModal ? 'reply' : 'tweet',
+      parentId: parent?.id ?? null,
+      parentUsername: parent?.username ?? null,
+      quoteTweetId: quotedTweetId
+    }),
+    [parent?.id, parent?.username, quotedTweetId, reply, replyModal, userId]
+  );
+  const currentDraftId = useMemo(
+    () => getTweetDraftId(draftScope),
+    [draftScope]
+  );
   const youtubeCard = useMemo(
     () => createYouTubeCardFromText(inputValue),
     [inputValue]
@@ -208,6 +376,62 @@ export function Input({
   const isUploadingImages = !!previewCount;
   const activeExternalCard =
     selectedGifCard ?? (!isUploadingImages ? youtubeCard : null);
+
+  const refreshAvailableDrafts = useCallback((): void => {
+    setAvailableDrafts(getTweetDraftsForUser(userId, draftScope.type));
+  }, [draftScope.type, userId]);
+
+  useEffect(() => {
+    setHydratedDraftId(null);
+
+    const draft = getTweetDraft(draftScope);
+
+    if (draft) {
+      setInputValue(draft.text);
+      setReplySetting(draft.replySetting ?? 'everyone');
+      setSelectedGifCard(draft.gifCard);
+      setImagesPreview(draft.gifPreview ? [draft.gifPreview] : []);
+      setSelectedImages([]);
+      setVisited(!!draft.text.trim() || !!draft.gifPreview);
+    }
+
+    setHydratedDraftId(getTweetDraftId(draftScope));
+  }, [draftScope]);
+
+  useEffect(() => {
+    refreshAvailableDrafts();
+
+    window.addEventListener(tweetDraftsChangedEvent, refreshAvailableDrafts);
+
+    return () =>
+      window.removeEventListener(
+        tweetDraftsChangedEvent,
+        refreshAvailableDrafts
+      );
+  }, [refreshAvailableDrafts]);
+
+  useEffect(() => {
+    if (hydratedDraftId !== currentDraftId) return;
+
+    const gifPreview = selectedGifCard
+      ? imagesPreview.find(({ type }) => type === 'gif') ?? null
+      : null;
+
+    saveTweetDraft(draftScope, {
+      text: inputValue,
+      replySetting,
+      gifCard: selectedGifCard,
+      gifPreview
+    });
+  }, [
+    currentDraftId,
+    draftScope,
+    hydratedDraftId,
+    imagesPreview,
+    inputValue,
+    replySetting,
+    selectedGifCard
+  ]);
 
   useEffect(
     () => {
@@ -263,6 +487,11 @@ export function Input({
     };
   }, [detectedPostLink, linkedQuoteTweetId, quoteTweet]);
 
+  const clearCurrentDraft = useCallback((): void => {
+    deleteTweetDraft(draftScope);
+    refreshAvailableDrafts();
+  }, [draftScope, refreshAvailableDrafts]);
+
   const sendTweet = async (): Promise<void> => {
     inputRef.current?.blur();
 
@@ -271,7 +500,6 @@ export function Input({
     try {
       const isReplying = reply ?? replyModal;
 
-      const userId = user?.id as string;
       const quotedTweet = activeQuoteTweet
         ? getQuotedTweetPreview(activeQuoteTweet)
         : null;
@@ -320,8 +548,10 @@ export function Input({
       onTweetSent?.({
         ...createdTweet,
         id: tweetId,
-        user: user as User
+        user: activeUser
       });
+
+      clearCurrentDraft();
 
       if (!modal && !replyModal) discardTweet();
 
@@ -429,13 +659,43 @@ export function Input({
     setSelectedGifCard(null);
   };
 
-  const discardTweet = (): void => {
+  const resetComposer = (): void => {
     setInputValue('');
     setVisited(false);
     setReplySetting('everyone');
     cleanImage();
+  };
 
+  const discardTweet = (): void => {
+    clearCurrentDraft();
+    resetComposer();
     inputRef.current?.blur();
+  };
+
+  const openDraftsModal = (): void => {
+    refreshAvailableDrafts();
+    setDraftsOpen(true);
+  };
+
+  const closeDraftsModal = (): void => setDraftsOpen(false);
+
+  const selectDraft = (draft: LocalTweetDraft): void => {
+    setInputValue(draft.text);
+    setReplySetting(draft.replySetting ?? 'everyone');
+    setSelectedGifCard(draft.gifCard);
+    setImagesPreview(draft.gifPreview ? [draft.gifPreview] : []);
+    setSelectedImages([]);
+    setVisited(!!draft.text.trim() || !!draft.gifPreview);
+    setDraftsOpen(false);
+
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const deleteDraft = (draftId: string): void => {
+    deleteTweetDraft(draftId);
+    refreshAvailableDrafts();
+
+    if (draftId === currentDraftId) resetComposer();
   };
 
   const handleChange = ({
@@ -572,6 +832,14 @@ export function Input({
       })}
       onSubmit={handleSubmit}
     >
+      <TweetDraftsModal
+        open={draftsOpen}
+        drafts={availableDrafts}
+        currentDraftId={currentDraftId}
+        closeModal={closeDraftsModal}
+        selectDraft={selectDraft}
+        deleteDraft={deleteDraft}
+      />
       {loading && (
         <motion.i className='h-1 animate-pulse bg-main-accent' {...variants} />
       )}
@@ -594,6 +862,7 @@ export function Input({
               className='accent-tab accent-bg-tab px-4 py-2 text-[15px] font-bold
                          leading-5 text-main-accent hover:bg-main-accent/10
                          active:bg-main-accent/20'
+              onClick={openDraftsModal}
             >
               Unsent Tweets
             </Button>

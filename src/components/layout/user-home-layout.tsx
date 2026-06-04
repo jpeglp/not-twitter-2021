@@ -7,6 +7,7 @@ import { useTheme } from '@lib/context/theme-context';
 import { useUser } from '@lib/context/user-context';
 import { formatAtprotoDisplayIdentifier } from '@lib/atproto/identity';
 import { isProfileBirthdayToday } from '@lib/profile-birthday';
+import { getProfileTweetSearchQuery } from '@lib/routes';
 import { getProfileRouteId } from '@lib/static-routes';
 import { SEO } from '@components/common/seo';
 import { UserHomeCover } from '@components/user/user-home-cover';
@@ -16,6 +17,7 @@ import { UserNav } from '@components/user/user-nav';
 import { Button } from '@components/ui/button';
 import { Loading } from '@components/ui/loading';
 import { CustomIcon } from '@components/ui/custom-icon';
+import { HeroIcon } from '@components/ui/hero-icon';
 import { ToolTip } from '@components/ui/tooltip';
 import { FollowButton } from '@components/ui/follow-button';
 import { variants } from '@components/user/user-header';
@@ -23,10 +25,7 @@ import { UserEditProfile } from '@components/user/user-edit-profile';
 import { UserBirthdayBalloons } from '@components/user/user-birthday-balloons';
 import { UserShare } from '@components/user/user-share';
 import type { LayoutProps } from './common-layout';
-import type {
-  ActivityNotificationCategory,
-  User
-} from '@lib/types/user';
+import type { ActivityNotificationCategory, User } from '@lib/types/user';
 
 const activityNotificationCategoryIds: ActivityNotificationCategory[] = [
   'all',
@@ -217,6 +216,27 @@ function ActivityNotificationButton({
   );
 }
 
+function ProfileSearchButton({
+  displayUsername,
+  onClick
+}: {
+  displayUsername: string;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <Button
+      className='dark-bg-tab group relative border border-light-line-reply p-2
+                 hover:bg-light-primary/10 active:bg-light-primary/20 dark:border-light-secondary
+                 dark:hover:bg-dark-primary/10 dark:active:bg-dark-primary/20'
+      aria-label={`Search Tweets from ${displayUsername}`}
+      onClick={onClick}
+    >
+      <HeroIcon className='h-5 w-5' iconName='MagnifyingGlassIcon' />
+      <ToolTip tip='Search' />
+    </Button>
+  );
+}
+
 export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
   const { user, isAdmin } = useAuth();
   const { hideBskySocialSuffix } = useTheme();
@@ -257,6 +277,7 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
     signedIn &&
     !profileIsBlocked &&
     canViewerMessageUser(userData, userId);
+  const showProfileSearchButton = !!userData && !profileIsBlocked;
   const showBirthdayBalloons =
     !!userData &&
     !profileIsBlocked &&
@@ -265,6 +286,18 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
   const handleMessageClick = (): void => {
     if (userData)
       void push(`/messages?actor=${encodeURIComponent(userData.username)}`);
+  };
+
+  const handleProfileSearchClick = (): void => {
+    if (!userData) return;
+
+    void push({
+      pathname: '/explore',
+      query: {
+        q: getProfileTweetSearchQuery(userData.username),
+        src: 'profile'
+      }
+    });
   };
 
   return (
@@ -305,9 +338,23 @@ export function UserHomeLayout({ children }: LayoutProps): JSX.Element {
               <div className='flex justify-between'>
                 <UserHomeAvatar profileData={profileData} />
                 {isOwner ? (
-                  <UserEditProfile />
+                  <div className='flex gap-2 self-start'>
+                    {showProfileSearchButton && (
+                      <ProfileSearchButton
+                        displayUsername={profileTitleUsername}
+                        onClick={handleProfileSearchClick}
+                      />
+                    )}
+                    <UserEditProfile />
+                  </div>
                 ) : (
                   <div className='flex gap-2 self-start'>
+                    {showProfileSearchButton && (
+                      <ProfileSearchButton
+                        displayUsername={profileTitleUsername}
+                        onClick={handleProfileSearchClick}
+                      />
+                    )}
                     {showMessageButton && (
                       <Button
                         className='dark-bg-tab group relative border border-main-accent p-2 hover:bg-light-primary/10 active:bg-light-main-accent/20 dark:border-main-accent text-main-accent dark:hover:bg-dark-main-accent/10 dark:active:bg-dark-primary/20'
