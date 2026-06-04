@@ -1,6 +1,7 @@
 import {
   canonicalizeBskyPostLinksInText,
   getBskyPostLinkFromText,
+  getProfileTweetSearchQuery,
   getBskyTweetUrl,
   removeBskyPostLinkFromText
 } from './routes';
@@ -95,6 +96,13 @@ describe('Bluesky post route helpers', () => {
 
     expect(removeBskyPostLinkFromText(text, postLink)).toBe(
       'John would like this'
+    );
+  });
+
+  it('creates profile tweet search queries from handles', () => {
+    expect(getProfileTweetSearchQuery('krouss.net')).toBe('from:krouss.net');
+    expect(getProfileTweetSearchQuery('@alice.bsky.social')).toBe(
+      'from:alice.bsky.social'
     );
   });
 });

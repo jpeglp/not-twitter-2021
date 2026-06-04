@@ -41,6 +41,7 @@ export type TweetCard = {
     title: string;
     description: string | null;
     icon: string | null;
+    theme?: Record<string, unknown> | null;
   } | null;
   createdAt?: string | null;
   updatedAt?: string | null;

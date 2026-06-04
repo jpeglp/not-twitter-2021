@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import useSWR from 'swr';
 import {
   getTweetThread,
@@ -10,6 +10,7 @@ import {
 import { isPlural } from '@lib/utils';
 import { getTweetRouteId } from '@lib/static-routes';
 import { useRouteBack } from '@lib/hooks/useRouteBack';
+import { getUserPath } from '@lib/routes';
 import { PublicTweetLayout } from '@components/layout/common-layout';
 import { MainContainer } from '@components/home/main-container';
 import { MainHeader } from '@components/home/main-header';
@@ -35,6 +36,9 @@ const initialParentPageState: ParentPageState = {
   loadingMore: false,
   error: false
 };
+const ROOT_THREAD_REPLY_INITIAL_COUNT = 3;
+const ROOT_THREAD_REPLY_PAGE_SIZE = 8;
+const REPLIES_PAGE_SIZE = 20;
 
 function getRouteParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -79,7 +83,6 @@ function TweetNotFound(): JSX.Element {
 
 export default function TweetId(): JSX.Element {
   const { asPath, query: routeQuery } = useRouter();
-  const routeBack = useRouteBack();
   const tweetId =
     getRouteParam(routeQuery.tweetId) ??
     getRouteParam(routeQuery.id) ??
@@ -100,6 +103,11 @@ export default function TweetId(): JSX.Element {
   const [parentPage, setParentPage] = useState<ParentPageState>(
     initialParentPageState
   );
+  const [parentPaginationReady, setParentPaginationReady] = useState(false);
+  const [visibleThreadReplyCount, setVisibleThreadReplyCount] = useState(
+    ROOT_THREAD_REPLY_INITIAL_COUNT
+  );
+  const [visibleReplyCount, setVisibleReplyCount] = useState(REPLIES_PAGE_SIZE);
 
   const tweetLoading = !!tweetId && !error && threadData === undefined;
   const tweetData = threadData?.tweet ?? null;
@@ -107,6 +115,9 @@ export default function TweetId(): JSX.Element {
   const threadReplies = threadData?.threadReplies ?? [];
   const repliesData = threadData?.replies ?? [];
   const tweetUnavailable = !!tweetData?.unavailable;
+  const routeBack = useRouteBack(
+    tweetData?.user.username ? getUserPath(tweetData.user.username) : undefined
+  );
 
   const { text, images } = tweetData ?? {};
 
@@ -114,6 +125,18 @@ export default function TweetId(): JSX.Element {
   const hasParentTweets = parentTweets.length > 0;
   const hasThreadReplies = threadReplies.length > 0;
   const hasThread = hasParentTweets || hasThreadReplies;
+  const isConversationRoot = !!tweetData && !tweetData.parent;
+  const shouldCollapseRootThreadReplies =
+    isConversationRoot &&
+    threadReplies.length > ROOT_THREAD_REPLY_INITIAL_COUNT;
+  const visibleThreadReplies = shouldCollapseRootThreadReplies
+    ? threadReplies.slice(0, visibleThreadReplyCount)
+    : threadReplies;
+  const hasMoreThreadReplies =
+    shouldCollapseRootThreadReplies &&
+    visibleThreadReplyCount < threadReplies.length;
+  const visibleReplies = repliesData.slice(0, visibleReplyCount);
+  const hasMoreReplies = visibleReplyCount < repliesData.length;
 
   const pageTitle = tweetData
     ? tweetUnavailable
@@ -126,6 +149,7 @@ export default function TweetId(): JSX.Element {
   useEffect(() => {
     if (!threadData) {
       setParentPage(initialParentPageState);
+      setParentPaginationReady(false);
       return;
     }
 
@@ -136,6 +160,12 @@ export default function TweetId(): JSX.Element {
       error: false
     });
   }, [threadData]);
+
+  useEffect(() => {
+    setParentPaginationReady(false);
+    setVisibleThreadReplyCount(ROOT_THREAD_REPLY_INITIAL_COUNT);
+    setVisibleReplyCount(REPLIES_PAGE_SIZE);
+  }, [tweetData?.id]);
 
   const loadMoreParents = useCallback(async (): Promise<void> => {
     const parentCursor = parentPage.cursor;
@@ -175,9 +205,34 @@ export default function TweetId(): JSX.Element {
   }, [parentPage.cursor, parentPage.loadingMore]);
 
   useEffect(() => {
-    if (!tweetLoading && hasParentTweets)
+    if (tweetLoading) return;
+
+    if (hasParentTweets) {
       viewTweetRef.current?.scrollIntoView();
+      requestAnimationFrame(() => setParentPaginationReady(true));
+      return;
+    }
+
+    setParentPaginationReady(true);
   }, [hasParentTweets, tweetData?.id, tweetLoading]);
+
+  const loadMoreParentsInView = useCallback((): void => {
+    if (!parentPaginationReady) return;
+
+    void loadMoreParents();
+  }, [loadMoreParents, parentPaginationReady]);
+
+  const showMoreThreadReplies = useCallback((): void => {
+    setVisibleThreadReplyCount((count) =>
+      Math.min(count + ROOT_THREAD_REPLY_PAGE_SIZE, threadReplies.length)
+    );
+  }, [threadReplies.length]);
+
+  const loadMoreRepliesInView = useCallback((): void => {
+    setVisibleReplyCount((count) =>
+      Math.min(count + REPLIES_PAGE_SIZE, repliesData.length)
+    );
+  }, [repliesData.length]);
 
   useEffect(() => {
     if (!tweetId) return undefined;
@@ -229,13 +284,19 @@ export default function TweetId(): JSX.Element {
           <>
             {pageTitle && <SEO title={pageTitle} />}
             {parentPage.cursor && (
-              <div
-                className='border-b border-light-border px-4 py-3 text-[15px]
-                           dark:border-dark-border'
+              <motion.div
+                className={
+                  parentPage.loadingMore || parentPage.error
+                    ? `border-b border-light-border px-4 py-3 text-[15px]
+                       dark:border-dark-border`
+                    : 'h-px'
+                }
+                viewport={{ margin: '1000px 0px 0px' }}
+                onViewportEnter={loadMoreParentsInView}
               >
                 {parentPage.loadingMore ? (
                   <Loading className='py-1' iconClassName='h-5 w-5' />
-                ) : (
+                ) : parentPage.error ? (
                   <button
                     className='custom-underline font-bold text-main-accent
                                disabled:cursor-wait disabled:opacity-60'
@@ -244,12 +305,12 @@ export default function TweetId(): JSX.Element {
                       void loadMoreParents();
                     }}
                   >
-                    {parentPage.error
-                      ? 'Retry earlier Tweets'
-                      : 'Show earlier Tweets'}
+                    Retry earlier Tweets
                   </button>
+                ) : (
+                  <span className='sr-only'>Loading earlier Tweets</span>
                 )}
-              </div>
+              </motion.div>
             )}
             {parentTweets.map((parentTweet) => (
               <Tweet
@@ -269,7 +330,7 @@ export default function TweetId(): JSX.Element {
               />
             )}
             <AnimatePresence>
-              {threadReplies.map((tweet) => (
+              {visibleThreadReplies.map((tweet) => (
                 <Tweet
                   conversationTweet
                   {...tweet}
@@ -277,7 +338,25 @@ export default function TweetId(): JSX.Element {
                   key={tweet.id}
                 />
               ))}
-              {repliesData.map((tweet) => (
+              {hasMoreThreadReplies && (
+                <div
+                  className='grid grid-cols-[auto,1fr] gap-x-3 border-b border-light-border
+                             px-4 py-3 dark:border-dark-border'
+                  key='show-more-thread-replies'
+                >
+                  <div className='flex w-10 justify-center'>
+                    <i className='h-full w-0.5 bg-light-line-reply dark:bg-dark-line-reply' />
+                  </div>
+                  <button
+                    className='w-fit text-[15px] font-bold text-main-accent hover:underline'
+                    type='button'
+                    onClick={showMoreThreadReplies}
+                  >
+                    Show more replies
+                  </button>
+                </div>
+              )}
+              {visibleReplies.map((tweet) => (
                 <Tweet
                   conversationTweet
                   {...tweet}
@@ -286,6 +365,15 @@ export default function TweetId(): JSX.Element {
                 />
               ))}
             </AnimatePresence>
+            {hasMoreReplies && (
+              <motion.div
+                className='border-b border-light-border dark:border-dark-border'
+                viewport={{ margin: '0px 0px 1000px' }}
+                onViewportEnter={loadMoreRepliesInView}
+              >
+                <Loading className='mt-5' />
+              </motion.div>
+            )}
           </>
         )}
       </section>

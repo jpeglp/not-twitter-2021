@@ -34,7 +34,7 @@ type PlaybackSpeed = 0.5 | 1 | 1.5 | 2;
 
 const playbackSpeeds: readonly PlaybackSpeed[] = [0.5, 1, 1.5, 2];
 const lowInitialVolume = 0.04;
-const compactSettingsHeight = 390;
+const compactSettingsHeight = 560;
 const tightControlsWidth = 430;
 const videoFocusThreshold = 0.5;
 
@@ -284,12 +284,23 @@ export function TwitterVideoPlayer({
       ? `${formatNumber(viewCount)} views`
       : null;
   const showInitialPlayButton = !autoPlay && !hasStarted && !playing;
-  const compactSettings =
-    playerSize.height > 0 && playerSize.height < compactSettingsHeight;
   const tightControls =
     playerSize.width > 0 && playerSize.width < tightControlsWidth;
+  const compactSettings =
+    !!compact ||
+    tightControls ||
+    (playerSize.height > 0 && playerSize.height < compactSettingsHeight);
   const showViewCount = !!viewCountLabel && !tightControls;
   const showVolumeButton = !compact && !tightControls;
+  const settingsMaxHeight =
+    playerSize.height > 0
+      ? Math.max(
+          96,
+          Math.min(compactSettings ? 292 : 340, playerSize.height - 76)
+        )
+      : compactSettings
+      ? 292
+      : 340;
 
   const setMutedState = useCallback((nextMuted: boolean): void => {
     mutedRef.current = nextMuted;
@@ -340,7 +351,6 @@ export function TwitterVideoPlayer({
       cancelled = true;
     };
   }, [activeSrc]);
-
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -850,11 +860,10 @@ export function TwitterVideoPlayer({
       {settingsOpen && (
         <div
           className={cn(
-            'absolute z-20 w-[calc(100%-24px)] max-w-[516px]',
-            compactSettings
-              ? 'right-3 bottom-[46px] max-h-[calc(100%-54px)]'
-              : 'right-3 bottom-[54px] max-h-[calc(100%-72px)]'
+            'absolute right-3 bottom-[46px] z-20 w-[calc(100%-24px)]',
+            compactSettings ? 'max-w-[300px]' : 'max-w-[340px]'
           )}
+          style={{ maxHeight: settingsMaxHeight }}
           onClick={preventBubbling(null, true)}
         >
           <span
@@ -867,11 +876,9 @@ export function TwitterVideoPlayer({
           <div
             className={cn(
               `twitter-video-settings-scroll relative z-10 max-h-[inherit] overflow-y-auto
-               overscroll-contain rounded-[22px] bg-white text-[#0f1419]
+               overscroll-contain rounded-2xl bg-white text-[#0f1419]
                shadow-[0_2px_14px_rgba(0,0,0,0.18)] ring-1 ring-black/5`,
-              compactSettings
-                ? 'px-5 py-3.5'
-                : 'px-[22px] py-[20px] sm:px-[36px] sm:pt-[34px] sm:pb-[31px]'
+              compactSettings ? 'px-4 py-3' : 'px-5 py-4'
             )}
             role='menu'
             aria-label='Video settings'
@@ -880,8 +887,8 @@ export function TwitterVideoPlayer({
               className={cn(
                 'text-left font-extrabold',
                 compactSettings
-                  ? 'text-[22px] leading-7'
-                  : 'text-[24px] leading-[30px] sm:text-[28px] sm:leading-[34px]'
+                  ? 'text-[18px] leading-6'
+                  : 'text-[20px] leading-7'
               )}
             >
               Playback speed
@@ -889,7 +896,7 @@ export function TwitterVideoPlayer({
             <p
               className={cn(
                 'mt-[2px] text-left leading-5 text-[#536471]',
-                compactSettings ? 'text-[14px]' : 'text-[15px] sm:text-[16px]'
+                compactSettings ? 'text-[13px]' : 'text-[14px]'
               )}
             >
               Press the speed you would like to watch the video in.
@@ -905,8 +912,8 @@ export function TwitterVideoPlayer({
                   className={cn(
                     'flex items-center justify-between text-left',
                     compactSettings
-                      ? 'h-7 text-[18px] leading-6'
-                      : 'h-9 text-[19px] leading-6 sm:h-[41px] sm:text-[22px] sm:leading-7'
+                      ? 'h-7 text-[15px] leading-5'
+                      : 'h-8 text-[16px] leading-5'
                   )}
                   type='button'
                   role='menuitemradio'
@@ -919,7 +926,7 @@ export function TwitterVideoPlayer({
                     className={cn(
                       `flex items-center justify-center rounded-full border-2
                        border-[#536471]`,
-                      compactSettings ? 'h-7 w-7' : 'h-7 w-7 sm:h-8 sm:w-8',
+                      compactSettings ? 'h-6 w-6' : 'h-7 w-7',
                       playbackRate === speed &&
                         'border-main-accent bg-main-accent text-white'
                     )}
@@ -928,7 +935,7 @@ export function TwitterVideoPlayer({
                     {playbackRate === speed && (
                       <TwitterVideoIcon
                         className={cn(
-                          compactSettings ? 'h-4 w-4' : 'h-4 w-4 sm:h-5 sm:w-5'
+                          compactSettings ? 'h-3.5 w-3.5' : 'h-4 w-4'
                         )}
                         iconName='check'
                       />
@@ -948,7 +955,7 @@ export function TwitterVideoPlayer({
                 <h3
                   className={cn(
                     'text-left font-extrabold leading-6',
-                    compactSettings ? 'text-[16px]' : 'text-[18px]'
+                    compactSettings ? 'text-[15px]' : 'text-[16px]'
                   )}
                 >
                   Quality
@@ -962,9 +969,7 @@ export function TwitterVideoPlayer({
                   <button
                     className={cn(
                       'flex items-center justify-between text-left leading-6',
-                      compactSettings
-                        ? 'h-7 text-[16px]'
-                        : 'h-[34px] text-[17px]'
+                      compactSettings ? 'h-7 text-[14px]' : 'h-8 text-[15px]'
                     )}
                     type='button'
                     role='menuitemradio'
@@ -974,8 +979,9 @@ export function TwitterVideoPlayer({
                     <span>Auto</span>
                     <span
                       className={cn(
-                        `flex h-7 w-7 items-center justify-center rounded-full border-2
+                        `flex items-center justify-center rounded-full border-2
                          border-[#536471]`,
+                        compactSettings ? 'h-6 w-6' : 'h-7 w-7',
                         !selectedQualitySrc &&
                           'border-main-accent bg-main-accent text-white'
                       )}
@@ -983,7 +989,9 @@ export function TwitterVideoPlayer({
                     >
                       {!selectedQualitySrc && (
                         <TwitterVideoIcon
-                          className='h-4 w-4'
+                          className={
+                            compactSettings ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                          }
                           iconName='check'
                         />
                       )}
@@ -993,9 +1001,7 @@ export function TwitterVideoPlayer({
                     <button
                       className={cn(
                         'flex items-center justify-between text-left leading-6',
-                        compactSettings
-                          ? 'h-7 text-[16px]'
-                          : 'h-[34px] text-[17px]'
+                        compactSettings ? 'h-7 text-[14px]' : 'h-8 text-[15px]'
                       )}
                       type='button'
                       role='menuitemradio'
@@ -1008,8 +1014,9 @@ export function TwitterVideoPlayer({
                       <span>{quality.label}</span>
                       <span
                         className={cn(
-                          `flex h-7 w-7 items-center justify-center rounded-full border-2
+                          `flex items-center justify-center rounded-full border-2
                            border-[#536471]`,
+                          compactSettings ? 'h-6 w-6' : 'h-7 w-7',
                           selectedQualitySrc === quality.src &&
                             'border-main-accent bg-main-accent text-white'
                         )}
@@ -1017,7 +1024,9 @@ export function TwitterVideoPlayer({
                       >
                         {selectedQualitySrc === quality.src && (
                           <TwitterVideoIcon
-                            className='h-4 w-4'
+                            className={
+                              compactSettings ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                            }
                             iconName='check'
                           />
                         )}
@@ -1038,7 +1047,7 @@ export function TwitterVideoPlayer({
                 <div
                   className={cn(
                     'flex items-center justify-between leading-6',
-                    compactSettings ? 'text-[16px]' : 'text-[17px]'
+                    compactSettings ? 'text-[14px]' : 'text-[15px]'
                   )}
                 >
                   <span className='font-bold'>Views</span>

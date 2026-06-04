@@ -8,6 +8,7 @@ import {
   normalizeHashtag,
   normalizeMention
 } from '@lib/hashtags';
+import { TwemojiScope } from '@components/ui/twemoji-scope';
 import type { CSSProperties, MouseEvent } from 'react';
 
 type TweetTextProps = {
@@ -161,8 +162,12 @@ export function TweetText({
     linkClassName ?? 'custom-underline text-main-accent outline-none';
 
   return (
-    <Tag
-      className={cn('whitespace-pre-line break-words', className)}
+    <TwemojiScope
+      as={Tag}
+      className={cn(
+        'tweet-display-font-size whitespace-pre-line break-words',
+        className
+      )}
       style={style}
     >
       {getTextParts(text).map((part, index) =>
@@ -209,6 +214,6 @@ export function TweetText({
           <span key={`${part.value}-${index}`}>{part.value}</span>
         )
       )}
-    </Tag>
+    </TwemojiScope>
   );
 }

@@ -454,7 +454,6 @@ function ConversationTweet({
   const displayCard = hasInlineMedia
     ? null
     : card ?? createYouTubeCardFromText(text);
-  const hideQuotedTweetMedia = hasInlineMedia || !!displayCard;
   const parentDisplayUsername = formatAtprotoDisplayIdentifier(
     parent?.username,
     { hideBskySocialSuffix }
@@ -609,7 +608,6 @@ function ConversationTweet({
               card={displayCard}
               quotedTweet={quotedTweet}
               articleTweetPath={tweetLink}
-              hideQuotedTweetMedia={hideQuotedTweetMedia}
             />
           )}
           {root && (
@@ -777,6 +775,8 @@ function ConversationActionBar({
   const [updatingBookmark, setUpdatingBookmark] = useState(false);
 
   const userId = user?.id as string | undefined;
+  const visibleRetweets = optimisticRetweets.length + tweet.userQuotes;
+
   useEffect(() => {
     const bookmarked = !!userBookmarks?.some(({ id }) => id === tweet.id);
 
@@ -928,7 +928,7 @@ function ConversationActionBar({
       <ConversationActionButton
         tip={tweetIsRetweeted ? 'Undo Retweet' : 'Retweet'}
         iconName='TwitterRetweetIcon'
-        count={optimisticRetweets.length}
+        count={visibleRetweets}
         active={tweetIsRetweeted}
         root={mediaOnly ? true : root}
         className='hover:text-accent-green focus-visible:text-accent-green'

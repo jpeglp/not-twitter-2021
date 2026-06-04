@@ -75,7 +75,6 @@ export function ViewTweet(tweet: ViewTweetProps): JSX.Element {
 
   const tweetLink = getTweetPath(tweetId, username);
   const displayCard = card ?? createYouTubeCardFromText(text);
-  const hideQuotedTweetMedia = !!images?.length || !!displayCard;
 
   const userId = user?.id ?? '';
 
@@ -233,7 +232,9 @@ export function ViewTweet(tweet: ViewTweetProps): JSX.Element {
         </p>
       )}
       <div>
-        {text && <TweetText className='text-2xl' text={text} />}
+        {text && (
+          <TweetText className='tweet-detail-display-font-size' text={text} />
+        )}
         {images && (
           <ImagePreview
             viewTweet
@@ -249,7 +250,6 @@ export function ViewTweet(tweet: ViewTweetProps): JSX.Element {
           viewTweet
           articleAuthor={tweetUserData}
           articleTweetPath={tweetLink}
-          hideQuotedTweetMedia={hideQuotedTweetMedia}
         />
         <div
           className='inner:hover-animation inner:border-b inner:border-light-border

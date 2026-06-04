@@ -113,6 +113,7 @@ be a very silly way to spend an afternoon.
 - Tailwind CSS
 - AT Protocol OAuth with PKCE/DPoP
 - Bluesky APIs through `@atproto/api`
+- Twemoji emoji assets via [`jdecked/twemoji`](https://github.com/jdecked/twemoji)
 
 ## Vibe Check
 

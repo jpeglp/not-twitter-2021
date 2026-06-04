@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import cn from 'clsx';
+import { getTwemojiSvgUrl } from '@lib/twemoji';
 import { Button } from '@components/ui/button';
 import { CustomIcon } from '@components/ui/custom-icon';
 import type { CSSProperties, ChangeEvent } from 'react';
@@ -51,14 +52,24 @@ type TenorResponse = {
   results: TenorGif[];
 };
 
+type EmojiItem = {
+  emoji: string;
+  name: string;
+  skinTone?: boolean;
+};
+
 type EmojiSection = {
+  id: string;
   title: string;
-  emojis: readonly string[];
+  icon: string;
+  emojis: readonly EmojiItem[];
 };
 
 type FilteredEmojiSection = {
+  id: string;
   title: string;
-  emojis: string[];
+  icon: string;
+  emojis: EmojiItem[];
 };
 
 type FoundMediaCategory = {
@@ -72,10 +83,22 @@ type FoundMediaCategoryTile = FoundMediaCategory & {
 
 const pickerViewportMargin = 12;
 const emojiPickerWidth = 350;
-const emojiPickerHeight = 427;
+const emojiPickerHeight = 520;
 const pickerOffset = 12;
 
 const tenorApiKey = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA';
+const recentEmojisKey = 'not-twitter:recent-emojis';
+
+const skinToneOptions = [
+  { label: 'Default', modifier: '' },
+  { label: 'Light', modifier: '🏻' },
+  { label: 'Medium-light', modifier: '🏼' },
+  { label: 'Medium', modifier: '🏽' },
+  { label: 'Medium-dark', modifier: '🏾' },
+  { label: 'Dark', modifier: '🏿' }
+] as const;
+
+const emojiSkinToneRegex = /[\u{1f3fb}-\u{1f3ff}]/gu;
 
 const foundMediaCategories: readonly FoundMediaCategory[] = [
   { label: 'Agree', searchTerm: 'agree' },
@@ -120,95 +143,297 @@ const foundMediaCategories: readonly FoundMediaCategory[] = [
   { label: 'Way to go', searchTerm: 'way to go' }
 ] as const;
 
+function emoji(value: string, name: string, skinTone = false): EmojiItem {
+  return { emoji: value, name, skinTone };
+}
+
 const emojiSections: readonly EmojiSection[] = [
   {
+    id: 'smileys',
     title: 'Smileys & people',
+    icon: '😀',
     emojis: [
-      '😀',
-      '😃',
-      '😄',
-      '😁',
-      '😆',
-      '😅',
-      '😂',
-      '🤣',
-      '😊',
-      '😍',
-      '😘',
-      '😎',
-      '🤔',
-      '🙄',
-      '😢',
-      '😭',
-      '😡',
-      '👍',
-      '👏',
-      '🙏',
-      '🔥',
-      '✨',
-      '💙',
-      '🎉'
+      emoji('😀', 'grinning face'),
+      emoji('😃', 'smiley happy'),
+      emoji('😄', 'smile happy'),
+      emoji('😁', 'grin'),
+      emoji('😆', 'laughing'),
+      emoji('😅', 'sweat smile'),
+      emoji('😂', 'joy tears'),
+      emoji('🤣', 'rolling laughing'),
+      emoji('😊', 'blush happy'),
+      emoji('😇', 'innocent angel'),
+      emoji('🙂', 'slight smile'),
+      emoji('🙃', 'upside down'),
+      emoji('😉', 'wink'),
+      emoji('😍', 'heart eyes love'),
+      emoji('😘', 'kiss'),
+      emoji('🥰', 'smiling hearts'),
+      emoji('😎', 'cool sunglasses'),
+      emoji('🤔', 'thinking'),
+      emoji('🙄', 'eye roll'),
+      emoji('😬', 'grimace'),
+      emoji('😴', 'sleeping'),
+      emoji('😢', 'cry'),
+      emoji('😭', 'sob'),
+      emoji('😡', 'angry'),
+      emoji('🤯', 'mind blown'),
+      emoji('👍', 'thumbs up like', true),
+      emoji('👎', 'thumbs down dislike', true),
+      emoji('👏', 'clap applause', true),
+      emoji('🙌', 'raised hands celebrate', true),
+      emoji('🙏', 'pray please thanks', true),
+      emoji('👋', 'wave hello', true),
+      emoji('💪', 'muscle strong', true),
+      emoji('🤝', 'handshake', true),
+      emoji('🫶', 'heart hands', true),
+      emoji('💙', 'blue heart'),
+      emoji('❤️', 'red heart'),
+      emoji('🔥', 'fire'),
+      emoji('✨', 'sparkles'),
+      emoji('🎉', 'party popper celebrate')
     ]
   },
   {
+    id: 'nature',
     title: 'Animals & nature',
+    icon: '🐶',
     emojis: [
-      '🐶',
-      '🐱',
-      '🐭',
-      '🐹',
-      '🐰',
-      '🦊',
-      '🐻',
-      '🐼',
-      '🐨',
-      '🐯',
-      '🦁',
-      '🐮',
-      '🌸',
-      '🌻',
-      '🌈',
-      '⭐'
+      emoji('🐶', 'dog'),
+      emoji('🐱', 'cat'),
+      emoji('🐭', 'mouse'),
+      emoji('🐹', 'hamster'),
+      emoji('🐰', 'rabbit'),
+      emoji('🦊', 'fox'),
+      emoji('🐻', 'bear'),
+      emoji('🐼', 'panda'),
+      emoji('🐨', 'koala'),
+      emoji('🐯', 'tiger'),
+      emoji('🦁', 'lion'),
+      emoji('🐮', 'cow'),
+      emoji('🐸', 'frog'),
+      emoji('🐵', 'monkey'),
+      emoji('🐔', 'chicken'),
+      emoji('🐧', 'penguin'),
+      emoji('🐦', 'bird'),
+      emoji('🐝', 'bee'),
+      emoji('🦋', 'butterfly'),
+      emoji('🐢', 'turtle'),
+      emoji('🌸', 'flower blossom'),
+      emoji('🌻', 'sunflower'),
+      emoji('🌲', 'evergreen tree'),
+      emoji('🌵', 'cactus'),
+      emoji('🌈', 'rainbow'),
+      emoji('⭐', 'star'),
+      emoji('🌙', 'moon'),
+      emoji('☀️', 'sun')
     ]
   },
   {
+    id: 'food',
     title: 'Food & drink',
+    icon: '🍔',
     emojis: [
-      '🍏',
-      '🍎',
-      '🍓',
-      '🍕',
-      '🍔',
-      '🍟',
-      '🌮',
-      '🍩',
-      '🍪',
-      '☕',
-      '🍺',
-      '🥂'
+      emoji('🍏', 'green apple'),
+      emoji('🍎', 'red apple'),
+      emoji('🍓', 'strawberry'),
+      emoji('🍒', 'cherries'),
+      emoji('🍑', 'peach'),
+      emoji('🍍', 'pineapple'),
+      emoji('🥑', 'avocado'),
+      emoji('🍞', 'bread'),
+      emoji('🥐', 'croissant'),
+      emoji('🍕', 'pizza'),
+      emoji('🍔', 'burger'),
+      emoji('🍟', 'fries'),
+      emoji('🌮', 'taco'),
+      emoji('🍣', 'sushi'),
+      emoji('🍩', 'donut'),
+      emoji('🍪', 'cookie'),
+      emoji('🎂', 'cake birthday'),
+      emoji('☕', 'coffee'),
+      emoji('🍺', 'beer'),
+      emoji('🥂', 'cheers')
     ]
   },
   {
+    id: 'activity',
     title: 'Activities',
-    emojis: ['⚽', '🏀', '🏈', '⚾', '🎮', '🎧', '🎤', '🎬', '🚗', '✈️', '🚀']
+    icon: '⚽',
+    emojis: [
+      emoji('⚽', 'soccer football'),
+      emoji('🏀', 'basketball'),
+      emoji('🏈', 'football'),
+      emoji('⚾', 'baseball'),
+      emoji('🎾', 'tennis'),
+      emoji('🏐', 'volleyball'),
+      emoji('🎱', 'pool billiards'),
+      emoji('🎮', 'video game'),
+      emoji('🕹️', 'joystick'),
+      emoji('🎧', 'headphones'),
+      emoji('🎤', 'microphone'),
+      emoji('🎬', 'movie clapper'),
+      emoji('🎨', 'art palette'),
+      emoji('🎲', 'dice'),
+      emoji('🏆', 'trophy'),
+      emoji('🥇', 'gold medal')
+    ]
+  },
+  {
+    id: 'travel',
+    title: 'Travel & places',
+    icon: '🚀',
+    emojis: [
+      emoji('🚗', 'car'),
+      emoji('🚕', 'taxi'),
+      emoji('🚌', 'bus'),
+      emoji('🚎', 'trolleybus'),
+      emoji('🏎️', 'race car'),
+      emoji('🚓', 'police car'),
+      emoji('🚑', 'ambulance'),
+      emoji('🚒', 'fire truck'),
+      emoji('🚲', 'bike bicycle'),
+      emoji('✈️', 'airplane flight'),
+      emoji('🚀', 'rocket'),
+      emoji('🛸', 'ufo'),
+      emoji('⛵', 'sailboat'),
+      emoji('🚢', 'ship'),
+      emoji('🏠', 'house'),
+      emoji('🏙️', 'city'),
+      emoji('🌉', 'bridge'),
+      emoji('🗽', 'statue liberty')
+    ]
+  },
+  {
+    id: 'objects',
+    title: 'Objects',
+    icon: '💡',
+    emojis: [
+      emoji('💡', 'idea light bulb'),
+      emoji('📱', 'phone mobile'),
+      emoji('💻', 'laptop computer'),
+      emoji('⌨️', 'keyboard'),
+      emoji('🖥️', 'desktop computer'),
+      emoji('📷', 'camera'),
+      emoji('🎥', 'video camera'),
+      emoji('📚', 'books'),
+      emoji('✏️', 'pencil'),
+      emoji('📝', 'memo note'),
+      emoji('📌', 'pin'),
+      emoji('🔒', 'lock'),
+      emoji('🔑', 'key'),
+      emoji('💰', 'money bag'),
+      emoji('🎁', 'gift'),
+      emoji('🔔', 'bell'),
+      emoji('📣', 'megaphone'),
+      emoji('🧵', 'thread')
+    ]
+  },
+  {
+    id: 'symbols',
+    title: 'Symbols',
+    icon: '❤️',
+    emojis: [
+      emoji('❤️', 'red heart'),
+      emoji('🧡', 'orange heart'),
+      emoji('💛', 'yellow heart'),
+      emoji('💚', 'green heart'),
+      emoji('💙', 'blue heart'),
+      emoji('💜', 'purple heart'),
+      emoji('🖤', 'black heart'),
+      emoji('🤍', 'white heart'),
+      emoji('💯', 'hundred'),
+      emoji('✅', 'check mark'),
+      emoji('☑️', 'check box'),
+      emoji('❌', 'cross mark'),
+      emoji('⚠️', 'warning'),
+      emoji('🚫', 'prohibited'),
+      emoji('♻️', 'recycle'),
+      emoji('🔁', 'repeat'),
+      emoji('🔴', 'red circle'),
+      emoji('🔵', 'blue circle')
+    ]
+  },
+  {
+    id: 'flags',
+    title: 'Flags',
+    icon: '🏳️',
+    emojis: [
+      emoji('🏳️', 'white flag'),
+      emoji('🏴', 'black flag'),
+      emoji('🏁', 'checkered flag'),
+      emoji('🚩', 'triangular flag'),
+      emoji('🏳️‍🌈', 'rainbow flag pride'),
+      emoji('🏳️‍⚧️', 'transgender flag pride'),
+      emoji('🇺🇸', 'flag united states usa'),
+      emoji('🇨🇦', 'flag canada'),
+      emoji('🇬🇧', 'flag united kingdom'),
+      emoji('🇪🇺', 'flag european union'),
+      emoji('🇯🇵', 'flag japan'),
+      emoji('🇰🇷', 'flag korea'),
+      emoji('🇦🇺', 'flag australia'),
+      emoji('🇲🇽', 'flag mexico'),
+      emoji('🇧🇷', 'flag brazil'),
+      emoji('🇺🇦', 'flag ukraine')
+    ]
   }
 ] as const;
 
-function getTwemojiCodepoint(emoji: string): string {
-  return Array.from(emoji)
-    .map((char) => char.codePointAt(0)?.toString(16))
-    .filter((codepoint): codepoint is string => !!codepoint)
-    .filter((codepoint) => codepoint !== 'fe0f')
-    .join('-');
+function getRecentEmojis(): string[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(recentEmojisKey) ?? '[]'
+    ) as unknown;
+
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
+  } catch {
+    return [];
+  }
 }
 
-function Twemoji({ emoji }: { emoji: string }): JSX.Element {
+function writeRecentEmoji(nextEmoji: string): string[] {
+  const nextEmojis = [
+    nextEmoji,
+    ...getRecentEmojis().filter((emoji) => emoji !== nextEmoji)
+  ].slice(0, 32);
+
+  try {
+    localStorage.setItem(recentEmojisKey, JSON.stringify(nextEmojis));
+  } catch {
+    // Recent emojis are a convenience only.
+  }
+
+  return nextEmojis;
+}
+
+function applySkinTone(
+  { emoji, skinTone }: EmojiItem,
+  modifier: string
+): string {
+  if (!skinTone || !modifier) return emoji;
+
+  const parts = Array.from(emoji.replace(emojiSkinToneRegex, ''));
+
+  return parts.length
+    ? `${parts[0]}${modifier}${parts.slice(1).join('')}`
+    : emoji;
+}
+
+function Twemoji({
+  emoji,
+  className = 'h-7 w-7'
+}: {
+  emoji: string;
+  className?: string;
+}): JSX.Element {
   return (
     <img
-      className='h-7 w-7'
-      src={`https://abs.twimg.com/emoji/v2/svg/${getTwemojiCodepoint(
-        emoji
-      )}.svg`}
+      className={className}
+      src={getTwemojiSvgUrl(emoji)}
       alt={emoji}
       draggable={false}
     />
@@ -502,29 +727,111 @@ function EmojiPicker({
   onSelectEmoji
 }: Pick<TwitterComposePickerProps, 'onSelectEmoji'>): JSX.Element {
   const [searchValue, setSearchValue] = useState('');
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
+  const [skinToneModifier, setSkinToneModifier] = useState('');
+  const [activeSectionId, setActiveSectionId] = useState(emojiSections[0].id);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const normalizedSearch = searchValue.trim().toLowerCase();
   const handleSearchChange = ({
     target: { value }
   }: ChangeEvent<HTMLInputElement>): void => setSearchValue(value);
-  const sections = useMemo<FilteredEmojiSection[]>(
-    () =>
-      emojiSections
-        .map((section) => ({
-          ...section,
-          emojis: section.emojis.filter(
-            (emoji): boolean =>
-              !normalizedSearch ||
-              section.title.toLowerCase().includes(normalizedSearch) ||
-              emoji.includes(normalizedSearch)
-          )
-        }))
-        .filter(({ emojis }): boolean => !!emojis.length),
-    [normalizedSearch]
+
+  useEffect(() => {
+    searchInputRef.current?.focus();
+    setRecentEmojis(getRecentEmojis());
+  }, []);
+
+  const allSections = useMemo<EmojiSection[]>(
+    () => [
+      ...(recentEmojis.length
+        ? [
+            {
+              id: 'recent',
+              title: 'Recently used',
+              icon: '🕘',
+              emojis: recentEmojis.map((recentEmoji) =>
+                emoji(recentEmoji, 'recently used emoji')
+              )
+            }
+          ]
+        : []),
+      ...emojiSections
+    ],
+    [recentEmojis]
   );
 
+  const sections = useMemo<FilteredEmojiSection[]>(
+    () =>
+      allSections
+        .map((section) => ({
+          ...section,
+          emojis: section.emojis
+            .map((item) => ({
+              ...item,
+              emoji: applySkinTone(item, skinToneModifier)
+            }))
+            .filter(({ emoji, name }): boolean => {
+              if (!normalizedSearch) return true;
+
+              return (
+                section.title.toLowerCase().includes(normalizedSearch) ||
+                name.toLowerCase().includes(normalizedSearch) ||
+                emoji.includes(normalizedSearch)
+              );
+            })
+        }))
+        .filter(({ emojis }): boolean => !!emojis.length),
+    [allSections, normalizedSearch, skinToneModifier]
+  );
+
+  const clearSearch = (): void => {
+    setSearchValue('');
+    searchInputRef.current?.focus();
+  };
+
+  const selectSkinTone = (modifier: string) => (): void => {
+    setSkinToneModifier(modifier);
+  };
+
+  const selectEmoji = (selectedEmoji: string): void => {
+    setRecentEmojis(writeRecentEmoji(selectedEmoji));
+    onSelectEmoji(selectedEmoji);
+  };
+
+  const scrollToSection = (sectionId: string) => (): void => {
+    setSearchValue('');
+    setActiveSectionId(sectionId);
+
+    requestAnimationFrame(() => {
+      sectionRefs.current[sectionId]?.scrollIntoView({ block: 'start' });
+    });
+  };
+
+  const handleEmojiScroll = (): void => {
+    if (normalizedSearch) return;
+
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const containerTop = scrollContainer.getBoundingClientRect().top;
+    let nextSectionId: string | null = null;
+
+    for (const { id } of sections) {
+      const section = sectionRefs.current[id];
+      if (!section) continue;
+
+      if (section.getBoundingClientRect().top - containerTop <= 16)
+        nextSectionId = id;
+    }
+
+    if (nextSectionId) setActiveSectionId(nextSectionId);
+  };
+
   return (
-    <>
-      <div className='px-3 pb-3'>
+    <div className='flex h-[467px] flex-col'>
+      <div className='px-3 pb-2'>
         <label
           className='flex h-11 items-center gap-3 rounded-full bg-main-search-background
                      px-4 text-light-secondary dark:text-dark-secondary'
@@ -536,36 +843,124 @@ function EmojiPicker({
             placeholder='Search emojis'
             value={searchValue}
             onChange={handleSearchChange}
+            ref={searchInputRef}
           />
+          {normalizedSearch && (
+            <Button
+              className='accent-tab -mr-1 flex h-6 w-6 shrink-0 items-center justify-center
+                         rounded-full bg-light-secondary p-0 text-main-background
+                         hover:bg-light-secondary/90 active:bg-light-secondary/80
+                         dark:bg-dark-secondary dark:text-light-primary'
+              onClick={clearSearch}
+              aria-label='Clear search'
+              title='Clear search'
+            >
+              <CustomIcon className='h-3 w-3' iconName='TwitterCloseIcon' />
+            </Button>
+          )}
         </label>
       </div>
-      <div className='h-[318px] overflow-y-auto px-3 pb-3'>
-        {sections.map(({ title, emojis }) => (
-          <section className='mb-4' key={title}>
-            <h3 className='mb-2 text-[13px] font-bold uppercase text-light-secondary dark:text-dark-secondary'>
-              {title}
-            </h3>
-            <div className='grid grid-cols-8 gap-1'>
-              {emojis.map((emoji) => {
-                const selectEmoji = (): void => onSelectEmoji(emoji);
+      <div className='flex h-10 items-center gap-1 px-3 pb-2'>
+        {skinToneOptions.map(({ label, modifier }) => {
+          const selected = modifier === skinToneModifier;
+          const previewEmoji = applySkinTone(
+            emoji('✋', label, true),
+            modifier
+          );
 
-                return (
-                  <button
-                    className='accent-tab flex h-9 w-9 items-center justify-center rounded-full
-                             hover:bg-main-accent/10 active:bg-main-accent/20'
-                    type='button'
-                    onClick={selectEmoji}
-                    key={`${title}-${emoji}`}
-                  >
-                    <Twemoji emoji={emoji} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+          return (
+            <Button
+              className={cn(
+                `accent-tab flex h-8 w-8 items-center justify-center rounded-full p-0
+                 hover:bg-main-accent/10 active:bg-main-accent/20`,
+                selected && 'bg-main-accent/10 ring-2 ring-main-accent'
+              )}
+              onClick={selectSkinTone(modifier)}
+              aria-label={`${label} skin tone`}
+              title={`${label} skin tone`}
+              key={label}
+            >
+              <Twemoji className='h-5 w-5' emoji={previewEmoji} />
+            </Button>
+          );
+        })}
       </div>
-    </>
+      <div
+        className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2'
+        onScroll={handleEmojiScroll}
+        ref={scrollContainerRef}
+      >
+        {sections.length ? (
+          sections.map(({ id, title, emojis }) => (
+            <section
+              className='mb-4 scroll-mt-2'
+              ref={(node): void => {
+                sectionRefs.current[id] = node;
+              }}
+              key={id}
+            >
+              <h3 className='mb-2 text-[13px] font-bold uppercase text-light-secondary dark:text-dark-secondary'>
+                {title}
+              </h3>
+              <div className='grid grid-cols-8 gap-1'>
+                {emojis.map(({ emoji, name }) => {
+                  const handleSelectEmoji = (): void => selectEmoji(emoji);
+
+                  return (
+                    <button
+                      className='accent-tab flex h-9 w-9 items-center justify-center rounded-full
+                                 hover:bg-main-accent/10 active:bg-main-accent/20'
+                      type='button'
+                      onClick={handleSelectEmoji}
+                      aria-label={name}
+                      title={name}
+                      key={`${id}-${emoji}-${name}`}
+                    >
+                      <Twemoji emoji={emoji} />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))
+        ) : (
+          <div className='mx-auto flex h-full max-w-[300px] flex-col justify-center px-5'>
+            <h3 className='text-[26px] font-extrabold leading-8'>
+              No emojis found
+            </h3>
+            <p className='mt-2 text-[15px] text-light-secondary dark:text-dark-secondary'>
+              Try searching for something else.
+            </p>
+          </div>
+        )}
+      </div>
+      <div className='grid h-12 shrink-0 auto-cols-fr grid-flow-col border-t border-light-border dark:border-dark-border'>
+        {allSections.map(({ id, title, icon }) => {
+          const selected = id === activeSectionId && !normalizedSearch;
+
+          return (
+            <Button
+              className={cn(
+                `accent-tab relative flex h-12 items-center justify-center rounded-none p-0
+                 text-light-secondary hover:bg-light-primary/5 active:bg-light-primary/10
+                 dark:text-dark-secondary dark:hover:bg-dark-primary/5
+                 dark:active:bg-dark-primary/10`,
+                selected && 'text-main-accent'
+              )}
+              onClick={scrollToSection(id)}
+              aria-label={title}
+              title={title}
+              key={id}
+            >
+              <Twemoji className='h-5 w-5' emoji={icon} />
+              {selected && (
+                <span className='absolute bottom-0 h-1 w-full bg-main-accent' />
+              )}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { formatAtprotoDisplayIdentifier } from '@lib/atproto/identity';
 import { useAuth } from '@lib/context/auth-context';
 import { useTheme } from '@lib/context/theme-context';
+import { useLongPress } from '@lib/hooks/useLongPress';
 import { useModal } from '@lib/hooks/useModal';
 import { formatNumber } from '@lib/date';
 import { getUserPath } from '@lib/routes';
@@ -78,7 +79,7 @@ export function MobileSidebarModal({
   closeModal
 }: MobileSidebarModalProps): JSX.Element {
   const { accounts, signOut, switchBlueskyAccount } = useAuth();
-  const { hideBskySocialSuffix } = useTheme();
+  const { hideBskySocialSuffix, theme, toggleColorScheme } = useTheme();
   const [view, setView] = useState<MobileSidebarView>('account-info');
 
   const {
@@ -97,6 +98,10 @@ export function MobileSidebarModal({
     openModal: addAccountOpenModal,
     closeModal: addAccountCloseModal
   } = useModal();
+  const themeShortcutHandlers = useLongPress({
+    onLongPress: displayOpenModal,
+    onPress: toggleColorScheme
+  });
 
   const allStats: Readonly<Stats[]> = [
     ['following', 'Following', followingCount],
@@ -118,6 +123,8 @@ export function MobileSidebarModal({
     alternateAccounts[0]?.username,
     { hideBskySocialSuffix }
   );
+  const themeShortcutLabel = theme === 'light' ? 'Dark mode' : 'Light mode';
+  const themeShortcutIcon = theme === 'light' ? 'MoonIcon' : 'SunIcon';
 
   const handleClose = (): void => {
     setView('account-info');
@@ -318,6 +325,20 @@ export function MobileSidebarModal({
               {bottomNavLinks.map((linkData) => (
                 <MobileSidebarLink bottom {...linkData} key={linkData.href} />
               ))}
+              <Button
+                className='accent-tab accent-bg-tab flex items-center gap-5 rounded-full px-4 py-3 text-left
+                           font-bold transition hover:bg-light-primary/10 focus-visible:ring-2
+                           first:focus-visible:ring-[#878a8c] dark:hover:bg-dark-primary/10
+                           dark:focus-visible:ring-white'
+                {...themeShortcutHandlers}
+                title='Hold for display options'
+              >
+                <HeroIcon
+                  className='h-6 w-6'
+                  iconName={themeShortcutIcon}
+                />
+                {themeShortcutLabel}
+              </Button>
               <Button
                 className='accent-tab accent-bg-tab flex items-center gap-5 rounded-full px-4 py-3 text-left
                            font-bold transition hover:bg-light-primary/10 focus-visible:ring-2
