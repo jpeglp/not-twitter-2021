@@ -109,7 +109,20 @@
   height: auto;
 }
  img[src="https://cdn.bsky.app/img/banner/plain/did:plc:ry3hbexak5ytsum7aazhpkbv/bafkreid2u5md56vpo5xabs6tu3bbscf3zgfzbwxhkh3wedrh46lpvnzloe@jpeg"] {
-  content: url("https://jpeglp.github.io/not-twitter-2021/assets/jp-twitter-banner.png");
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/jp-twitter-banner.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+//@atproto.com to twitter dev images
+ img[src="https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafkreiaihtwfr2d6mjfb6drzaze2gubqtst4ymiwxowqfxpsqxpnz2t33u"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-dev.jpg");
+  display: inline-block;
+  width: auto;
+  height: auto;
+}
+ img[src="https://cdn.bsky.app/img/banner/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafkreidhox3lr7tld2oj2uy7swefvhsgcmeufurclzllwloceyhwjg6rg4@jpeg"] {
+  content: url("https://jpeglp.github.io/not-twitter-2021/assets/twitter-dev-banner.jpg");
   display: inline-block;
   width: auto;
   height: auto;

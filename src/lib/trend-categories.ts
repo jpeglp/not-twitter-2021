@@ -84,6 +84,8 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'black history month': 'Culture',
   'taylor swift': 'Music',
   'slayyyter': 'Music',
+  'susan collins': 'Politics',
+
   'mina the hollower': 'Gaming',
   'underscores': 'Music',
   'scott pelley': 'Entertainment',
@@ -140,6 +142,8 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'democratic',
       'democrats',
       'gop',
+      'fisa',
+      'zelensky',
       'government',
       'governor',
       'harris',
@@ -334,7 +338,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
   },
   {
     category: 'Science',
-    keywords: ['climate', 'nasa', 'science', 'space']
+    keywords: ['climate', 'nasa', 'science', 'space','spacex','blue origin']
   },
   {
     category: 'Lifestyle',
