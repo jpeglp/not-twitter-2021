@@ -58,12 +58,14 @@ type SettingsSection =
   | 'privacy'
   | 'content'
   | 'notifications'
-  | 'display';
+  | 'display'
+  | 'nottwitterblue';
 
 type SettingsNavItem = {
   id: SettingsSection;
   title: string;
   description: string;
+  href: string;
   iconName: IconName;
 };
 
@@ -103,6 +105,13 @@ const SETTINGS_NAV: SettingsNavItem[] = [
     title: 'Accessibility, display, and languages',
     description: 'Adjust the local Not Twitter-style display for this browser.',
     iconName: 'PaintBrushIcon'
+  },
+  {
+    id: 'nottwitterblue',
+    title: 'Not Twitter Blue',
+    description: 'Change features',
+    href: '/not-twitter-blue',
+    iconName: ''
   }
 ];
 
@@ -1792,6 +1801,7 @@ export default function Settings(): JSX.Element {
           <Loading />
         </div>
       );
+  
 
     switch (activeSection) {
       case 'account':
@@ -1806,6 +1816,7 @@ export default function Settings(): JSX.Element {
         return renderNotificationsPanel() as JSX.Element;
       case 'display':
         return renderDisplayPanel();
+      
     }
   };
 
