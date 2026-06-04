@@ -4,6 +4,8 @@ This is Not Twitter.
 
 https://jpeglp.github.io/not-twitter-2021/
 
+home-example.png
+
 It looks suspiciously like Twitter, scrolls suspiciously like Twitter, and may
 even trigger the same muscle memory as Twitter. But legally, spiritually, and
 with a straight face, it is Not Twitter.
