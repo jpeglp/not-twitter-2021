@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { Dialog } from '@headlessui/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import TextArea from 'react-textarea-autosize';
 import cn from 'clsx';
 import { toast } from 'react-hot-toast';
 import { RichText } from '@atproto/api';
@@ -103,6 +104,7 @@ type TweetSubmissionSnapshot = {
   parent: { id: string; username: string } | undefined;
   isReplying: boolean;
   replySetting: TweetReplySetting;
+  threadItems: ThreadComposerItem[];
 };
 
 type UndoTweetPending = {
@@ -111,10 +113,17 @@ type UndoTweetPending = {
   durationSeconds: number;
 };
 
+type ThreadComposerItem = {
+  id: string;
+  text: string;
+};
+
 function getUndoTweetKind({
   isReplying,
-  quoteTweet
+  quoteTweet,
+  threadItems
 }: TweetSubmissionSnapshot): UndoTweetKind {
+  if (threadItems.length) return 'thread';
   if (isReplying) return 'reply';
   if (quoteTweet) return 'quote';
 
@@ -143,6 +152,24 @@ export const variants: Variants = {
 };
 
 const BLUESKY_POST_GRAPHEME_LIMIT = 300;
+
+function createThreadComposerItem(): ThreadComposerItem {
+  return {
+    id: `thread-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
+    text: ''
+  };
+}
+
+function getPostGraphemeLength(text: string): number {
+  return new RichText({ text }, { cleanNewlines: true }).graphemeLength;
+}
+
+function isValidThreadText(text: string): boolean {
+  const trimmed = text.trim();
+  return !!trimmed && getPostGraphemeLength(text) <= BLUESKY_POST_GRAPHEME_LIMIT;
+}
 
 function getErrorMessage(error: unknown): string | null {
   return error instanceof Error && error.message ? error.message : null;
@@ -368,7 +395,7 @@ function UndoTweetComposerStatus({
         >
           <span className='h-[15px] w-[15px] rounded-full bg-main-background' />
         </span>
-        <p className='min-w-0 flex-1 truncate font-bold'>Sending Tweet…</p>
+        <p className='min-w-0 shrink truncate font-bold'>Sending Tweet…</p>
         <Button
           className='accent-tab accent-bg-tab shrink-0 px-2 py-2 text-[14px] font-bold leading-5
                      text-main-accent hover:bg-main-accent/10 active:bg-main-accent/20'
@@ -384,6 +411,98 @@ function UndoTweetComposerStatus({
           Undo
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ThreadComposerStack({
+  items,
+  inputLimit,
+  disabled,
+  photoURL,
+  name,
+  username,
+  setThreadInputRef,
+  updateThreadItem,
+  removeThreadItem
+}: {
+  items: ThreadComposerItem[];
+  inputLimit: number;
+  disabled: boolean;
+  photoURL: string;
+  name: string;
+  username: string;
+  setThreadInputRef: (
+    id: string
+  ) => (node: HTMLTextAreaElement | null) => void;
+  updateThreadItem: (id: string, text: string) => void;
+  removeThreadItem: (id: string) => void;
+}): JSX.Element | null {
+  if (!items.length) return null;
+
+  return (
+    <div className='-ml-[60px] flex flex-col pl-[60px]'>
+      {items.map(({ id, text }, index) => {
+        const inputLength = getPostGraphemeLength(text);
+        const remaining = inputLimit - inputLength;
+        const showCount = remaining <= 20 || remaining < 0;
+        const overLimit = remaining < 0;
+
+        return (
+          <div
+            className='relative grid min-h-[86px] grid-cols-[48px,1fr] gap-3 py-3'
+            key={id}
+          >
+            <div className='relative flex justify-center'>
+              <span className='absolute left-1/2 -top-3 h-5 w-0.5 -translate-x-1/2 bg-light-line-reply dark:bg-dark-line-reply' />
+              {index < items.length - 1 && (
+                <span className='absolute left-1/2 top-10 bottom-[-12px] w-0.5 -translate-x-1/2 bg-light-line-reply dark:bg-dark-line-reply' />
+              )}
+              <UserAvatar size={40} src={photoURL} alt={name} username={username} />
+            </div>
+            <div className='relative min-w-0'>
+              <TextArea
+                className={cn(
+                  `w-full min-w-0 resize-none bg-transparent pr-10 text-[20px] leading-6
+                   text-light-primary outline-none placeholder:text-light-secondary
+                   dark:text-dark-primary dark:placeholder:text-dark-secondary`,
+                  overLimit && 'text-accent-red'
+                )}
+                value={text}
+                placeholder='Add another Tweet'
+                minRows={2}
+                maxRows={8}
+                readOnly={disabled}
+                onChange={({ target: { value } }): void =>
+                  updateThreadItem(id, value)
+                }
+                ref={setThreadInputRef(id)}
+              />
+              <Button
+                className='dark-bg-tab absolute right-0 top-[-2px] h-8 w-8 rounded-full p-0 text-light-secondary
+                           hover:bg-accent-red/10 hover:text-accent-red
+                           active:bg-accent-red/20 dark:text-dark-secondary'
+                aria-label='Remove Tweet from thread'
+                title='Remove Tweet from thread'
+                disabled={disabled}
+                onClick={(): void => removeThreadItem(id)}
+              >
+                <HeroIcon className='h-4 w-4' iconName='XMarkIcon' />
+              </Button>
+              {showCount && (
+                <p
+                  className={cn(
+                    'mt-1 text-right text-[13px] leading-4 text-light-secondary dark:text-dark-secondary',
+                    overLimit && 'font-bold text-accent-red'
+                  )}
+                >
+                  {remaining}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -421,6 +540,7 @@ export function Input({
   const [hydratedDraftId, setHydratedDraftId] = useState<string | null>(null);
   const [pendingUndoTweet, setPendingUndoTweet] =
     useState<UndoTweetPending | null>(null);
+  const [threadItems, setThreadItems] = useState<ThreadComposerItem[]>([]);
 
   const { user } = useAuth();
   const activeUser = user as User;
@@ -428,6 +548,9 @@ export function Input({
   const { undoTweetSettings } = useUndoTweetSettings();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const threadInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>(
+    {}
+  );
   const undoTweetTimeoutRef = useRef<number | null>(null);
   const pendingUndoTweetRef = useRef<UndoTweetPending | null>(null);
   const quotedTweetId = quoteTweet?.id ?? null;
@@ -485,6 +608,7 @@ export function Input({
       setSelectedGifCard(draft.gifCard);
       setImagesPreview(draft.gifPreview ? [draft.gifPreview] : []);
       setSelectedImages([]);
+      setThreadItems([]);
       setVisited(!!draft.text.trim() || !!draft.gifPreview);
     }
 
@@ -607,8 +731,71 @@ export function Input({
     quoteTweet: activeQuoteTweet,
     parent,
     isReplying: !!(reply ?? replyModal),
-    replySetting
+    replySetting,
+    threadItems: threadItems.map((item) => ({ ...item }))
   });
+
+  const publishSingleTweet = async (
+    snapshot: TweetSubmissionSnapshot
+  ): Promise<TweetWithUser> => {
+    const quotedTweet = snapshot.quoteTweet
+      ? getQuotedTweetPreview(snapshot.quoteTweet)
+      : null;
+    const uploadedImages = (snapshot.selectedGifCard
+      ? snapshot.imagesPreview
+      : snapshot.selectedImages.length || snapshot.imagesPreview.length
+      ? await uploadImages(
+          userId,
+          snapshot.selectedImages,
+          snapshot.imagesPreview
+        )
+      : []) ?? [];
+
+    const tweetData: WithFieldValue<TweetDraft> = {
+      text: snapshot.text || null,
+      langs: [],
+      parent: snapshot.isReplying && snapshot.parent ? snapshot.parent : null,
+      images: uploadedImages,
+      mediaWarning: null,
+      card: snapshot.externalCard,
+      quotedTweet,
+      userLikes: [],
+      createdBy: userId,
+      createdAt: serverTimestamp(),
+      updatedAt: null,
+      userReplies: 0,
+      userRetweets: [],
+      userQuotes: 0,
+      bookmarkCount: 0,
+      replySetting: snapshot.isReplying ? undefined : snapshot.replySetting,
+      quoteTarget: snapshot.quoteTweet
+        ? {
+            id: snapshot.quoteTweet.id,
+            createdBy: snapshot.quoteTweet.createdBy
+          }
+        : undefined
+    };
+
+    await sleep(500);
+
+    const [tweetRef] = await Promise.all([
+      addDoc(tweetsCollection, tweetData as WithFieldValue<Omit<Tweet, 'id'>>),
+      manageTotalTweets('increment', userId),
+      uploadedImages.length && manageTotalPhotos('increment', userId),
+      snapshot.isReplying &&
+        manageReply('increment', snapshot.parent?.id as string)
+    ]);
+
+    const tweetSnapshot = await getDoc(tweetRef);
+    const createdTweet = tweetSnapshot.data();
+    const tweetId = tweetSnapshot.id;
+
+    return {
+      ...createdTweet,
+      id: tweetId,
+      user: activeUser
+    };
+  };
 
   const publishTweet = async (
     snapshot: TweetSubmissionSnapshot
@@ -617,64 +804,33 @@ export function Input({
     setLoading(true);
 
     try {
-      const quotedTweet = snapshot.quoteTweet
-        ? getQuotedTweetPreview(snapshot.quoteTweet)
-        : null;
-      const uploadedImages = snapshot.selectedGifCard
-        ? snapshot.imagesPreview
-        : await uploadImages(
-            userId,
-            snapshot.selectedImages,
-            snapshot.imagesPreview
-          );
+      const createdTweets: TweetWithUser[] = [];
+      const firstTweet = await publishSingleTweet(snapshot);
+      createdTweets.push(firstTweet);
 
-      const tweetData: WithFieldValue<TweetDraft> = {
-        text: snapshot.text || null,
-        langs: [],
-        parent: snapshot.isReplying && snapshot.parent ? snapshot.parent : null,
-        images: uploadedImages,
-        mediaWarning: null,
-        card: snapshot.externalCard,
-        quotedTweet,
-        userLikes: [],
-        createdBy: userId,
-        createdAt: serverTimestamp(),
-        updatedAt: null,
-        userReplies: 0,
-        userRetweets: [],
-        userQuotes: 0,
-        bookmarkCount: 0,
-        replySetting: snapshot.isReplying ? undefined : snapshot.replySetting,
-        quoteTarget: snapshot.quoteTweet
-          ? {
-              id: snapshot.quoteTweet.id,
-              createdBy: snapshot.quoteTweet.createdBy
-            }
-          : undefined
-      };
+      let parentTweet = firstTweet;
 
-      await sleep(500);
+      for (const threadItem of snapshot.threadItems) {
+        const threadSnapshot: TweetSubmissionSnapshot = {
+          ...snapshot,
+          text: threadItem.text,
+          selectedImages: [],
+          imagesPreview: [],
+          selectedGifCard: null,
+          externalCard: null,
+          quoteTweet: null,
+          parent: { id: parentTweet.id, username },
+          isReplying: true,
+          replySetting: 'everyone',
+          threadItems: []
+        };
+        parentTweet = await publishSingleTweet(threadSnapshot);
+        createdTweets.push(parentTweet);
+      }
 
-      const [tweetRef] = await Promise.all([
-        addDoc(
-          tweetsCollection,
-          tweetData as WithFieldValue<Omit<Tweet, 'id'>>
-        ),
-        manageTotalTweets('increment', userId),
-        tweetData.images && manageTotalPhotos('increment', userId),
-        snapshot.isReplying &&
-          manageReply('increment', snapshot.parent?.id as string)
-      ]);
+      const [rootTweet] = createdTweets;
 
-      const tweetSnapshot = await getDoc(tweetRef);
-      const createdTweet = tweetSnapshot.data();
-      const tweetId = tweetSnapshot.id;
-
-      onTweetSent?.({
-        ...createdTweet,
-        id: tweetId,
-        user: activeUser
-      });
+      onTweetSent?.(rootTweet);
 
       clearCurrentDraft();
 
@@ -685,8 +841,10 @@ export function Input({
       toast.success(
         () => (
           <span className='flex gap-2'>
-            Your Tweet was sent
-            <Link href={getTweetPath(tweetId, username)}>
+            {snapshot.threadItems.length
+              ? 'Your Thread was sent'
+              : 'Your Tweet was sent'}
+            <Link href={getTweetPath(rootTweet.id, username)}>
               <a className='custom-underline font-bold'>View</a>
             </Link>
           </span>
@@ -842,6 +1000,7 @@ export function Input({
 
   const resetComposer = (): void => {
     setInputValue('');
+    setThreadItems([]);
     setVisited(false);
     setReplySetting('everyone');
     cleanImage();
@@ -866,6 +1025,7 @@ export function Input({
     setSelectedGifCard(draft.gifCard);
     setImagesPreview(draft.gifPreview ? [draft.gifPreview] : []);
     setSelectedImages([]);
+    setThreadItems([]);
     setVisited(!!draft.text.trim() || !!draft.gifPreview);
     setDraftsOpen(false);
 
@@ -882,6 +1042,34 @@ export function Input({
   const handleChange = ({
     target: { value }
   }: ChangeEvent<HTMLTextAreaElement>): void => setInputValue(value);
+
+  const setThreadInputRef =
+    (id: string) =>
+    (node: HTMLTextAreaElement | null): void => {
+      threadInputRefs.current[id] = node;
+    };
+
+  const updateThreadItem = (id: string, text: string): void => {
+    setThreadItems((currentItems) =>
+      currentItems.map((item) => (item.id === id ? { ...item, text } : item))
+    );
+  };
+
+  const removeThreadItem = (id: string): void => {
+    setThreadItems((currentItems) =>
+      currentItems.filter((item) => item.id !== id)
+    );
+    delete threadInputRefs.current[id];
+  };
+
+  const addThreadItem = (): void => {
+    const nextItem = createThreadComposerItem();
+    setThreadItems((currentItems) => [...currentItems, nextItem]);
+
+    requestAnimationFrame(() => {
+      threadInputRefs.current[nextItem.id]?.focus();
+    });
+  };
 
   const handleEmojiSelect = (emoji: string): void => {
     const input = inputRef.current;
@@ -993,17 +1181,30 @@ export function Input({
   const isUndoTweetPending = !!pendingUndoTweet;
 
   const inputLength = useMemo(
-    () =>
-      new RichText({ text: submittedText }, { cleanNewlines: true })
-        .graphemeLength,
+    () => getPostGraphemeLength(submittedText),
     [submittedText]
   );
   const isValidInput = !!submittedText.length;
   const isCharLimitExceeded = inputLength > inputLimit;
+  const hasThreadItems = threadItems.length > 0;
+  const areThreadItemsValid = threadItems.every(({ text }) =>
+    isValidThreadText(text)
+  );
+  const lastThreadItem = threadItems[threadItems.length - 1];
 
-  const isValidTweet =
+  const isValidSingleTweet =
     !isCharLimitExceeded &&
     (isValidInput || isUploadingImages || !!activeQuoteTweet);
+  const isValidTweet =
+    isValidSingleTweet && (!hasThreadItems || areThreadItemsValid);
+  const canAddThreadItem =
+    !reply &&
+    !replyModal &&
+    !quoteTweet &&
+    !activeQuoteTweet &&
+    !loading &&
+    !pendingUndoTweet &&
+    (lastThreadItem ? isValidThreadText(lastThreadItem.text) : isValidSingleTweet);
 
   return (
     <form
@@ -1100,7 +1301,7 @@ export function Input({
           username={username}
         />
         <div className='flex w-full min-w-0 flex-col gap-4'>
-          <InputForm
+            <InputForm
             modal={modal}
             reply={reply}
             quote={!!activeQuoteTweet}
@@ -1132,7 +1333,18 @@ export function Input({
             discardTweet={discardTweet}
             handleChange={handleChange}
             handleImageUpload={handleImageUpload}
-          >
+            >
+            <ThreadComposerStack
+              items={threadItems}
+              inputLimit={inputLimit}
+              disabled={loading || isUndoTweetPending}
+              photoURL={photoURL}
+              name={name}
+              username={username}
+              setThreadInputRef={setThreadInputRef}
+              updateThreadItem={updateThreadItem}
+              removeThreadItem={removeThreadItem}
+            />
             {isUploadingImages && (
               <ImagePreview
                 imagesPreview={imagesPreview}
@@ -1167,6 +1379,8 @@ export function Input({
                 isValidTweet={isValidTweet}
                 isCharLimitExceeded={isCharLimitExceeded}
                 hideSubmit={isUndoTweetPending}
+                canAddThreadItem={canAddThreadItem}
+                onAddThreadItem={addThreadItem}
                 handleImageUpload={handleImageUpload}
                 handleEmojiSelect={handleEmojiSelect}
                 handleGifSelect={handleGifSelect}

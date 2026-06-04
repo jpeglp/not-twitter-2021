@@ -7,6 +7,7 @@ import {
   type UndoTweetInterval,
   type UndoTweetKind
 } from '@lib/hooks/use-undo-tweet-settings';
+import { useNotTwitterBlueSettings } from '@lib/hooks/use-not-twitter-blue-settings';
 import { Button } from '@components/ui/button';
 import { CustomIcon } from '@components/ui/custom-icon';
 import { HeroIcon } from '@components/ui/hero-icon';
@@ -133,6 +134,9 @@ function NotTwitterBlueLanding({
 }: {
   openUndoTweet: () => void;
 }): JSX.Element {
+  const { notTwitterBlueSettings, setReaderModeEnabled } =
+    useNotTwitterBlueSettings();
+
   return (
     <>
       <header className='flex h-[53px] items-center border-b border-light-border px-4 dark:border-dark-border'>
@@ -153,6 +157,24 @@ function NotTwitterBlueLanding({
           }
           onClick={openUndoTweet}
         />
+        <SettingsRow
+          title='Reader Mode'
+          description='Turn long Tweet threads into a continuous reading view.'
+          icon={
+            <HeroIcon
+              className='h-8 w-8'
+              iconName='BookOpenIcon'
+            />
+          }
+        >
+          <Toggle
+            checked={notTwitterBlueSettings.readerMode}
+            label='Reader Mode'
+            onChange={(): void =>
+              setReaderModeEnabled(!notTwitterBlueSettings.readerMode)
+            }
+          />
+        </SettingsRow>
       </section>
     </>
   );

@@ -10,6 +10,7 @@ import {
 import { isPlural } from '@lib/utils';
 import { getTweetRouteId } from '@lib/static-routes';
 import { useRouteBack } from '@lib/hooks/useRouteBack';
+import { useNotTwitterBlueSettings } from '@lib/hooks/use-not-twitter-blue-settings';
 import { getUserPath } from '@lib/routes';
 import { PublicTweetLayout } from '@components/layout/common-layout';
 import { MainContainer } from '@components/home/main-container';
@@ -17,6 +18,8 @@ import { MainHeader } from '@components/home/main-header';
 import { Tweet } from '@components/tweet/tweet';
 import { ViewTweet } from '@components/view/view-tweet';
 import { SEO } from '@components/common/seo';
+import { Button } from '@components/ui/button';
+import { HeroIcon } from '@components/ui/hero-icon';
 import { Loading } from '@components/ui/loading';
 import type { ReactElement, ReactNode } from 'react';
 import type {
@@ -108,6 +111,8 @@ export default function TweetId(): JSX.Element {
     ROOT_THREAD_REPLY_INITIAL_COUNT
   );
   const [visibleReplyCount, setVisibleReplyCount] = useState(REPLIES_PAGE_SIZE);
+  const [readerModeActive, setReaderModeActive] = useState(false);
+  const { notTwitterBlueSettings } = useNotTwitterBlueSettings();
 
   const tweetLoading = !!tweetId && !error && threadData === undefined;
   const tweetData = threadData?.tweet ?? null;
@@ -137,6 +142,12 @@ export default function TweetId(): JSX.Element {
     visibleThreadReplyCount < threadReplies.length;
   const visibleReplies = repliesData.slice(0, visibleReplyCount);
   const hasMoreReplies = visibleReplyCount < repliesData.length;
+  const readerModeAvailable =
+    notTwitterBlueSettings.readerMode && hasThread && !!tweetData && !tweetUnavailable;
+  const readerModeTweets =
+    readerModeAvailable && tweetData
+      ? [...parentTweets, tweetData, ...threadReplies]
+      : [];
 
   const pageTitle = tweetData
     ? tweetUnavailable
@@ -165,7 +176,12 @@ export default function TweetId(): JSX.Element {
     setParentPaginationReady(false);
     setVisibleThreadReplyCount(ROOT_THREAD_REPLY_INITIAL_COUNT);
     setVisibleReplyCount(REPLIES_PAGE_SIZE);
+    setReaderModeActive(false);
   }, [tweetData?.id]);
+
+  useEffect(() => {
+    if (!readerModeAvailable) setReaderModeActive(false);
+  }, [readerModeAvailable]);
 
   const loadMoreParents = useCallback(async (): Promise<void> => {
     const parentCursor = parentPage.cursor;
@@ -274,12 +290,65 @@ export default function TweetId(): JSX.Element {
         useActionButton
         title={hasThread ? 'Thread' : 'Tweet'}
         action={routeBack}
-      />
+      >
+        {readerModeAvailable && (
+          <Button
+            className='dark-bg-tab group relative ml-auto p-2 text-main-accent
+                       hover:bg-main-accent/10 active:bg-main-accent/20'
+            aria-label={readerModeActive ? 'Exit Reader Mode' : 'Reader Mode'}
+            title={readerModeActive ? 'Exit Reader Mode' : 'Reader Mode'}
+            onClick={(): void => setReaderModeActive((active) => !active)}
+          >
+            <HeroIcon
+              className='h-5 w-5'
+              iconName={readerModeActive ? 'XMarkIcon' : 'BookOpenIcon'}
+            />
+          </Button>
+        )}
+      </MainHeader>
       <section>
         {tweetLoading ? (
           <Loading className='mt-5' />
         ) : !tweetData ? (
           <TweetNotFound />
+        ) : readerModeActive ? (
+          <>
+            {pageTitle && <SEO title={pageTitle} />}
+            <div className='border-b border-light-border px-4 py-3 dark:border-dark-border'>
+              <p className='text-center text-[13px] font-bold leading-4 text-light-secondary dark:text-dark-secondary'>
+                Reader Mode
+              </p>
+            </div>
+            {readerModeTweets.map((tweet) =>
+              tweet.id === tweetData.id && !tweetUnavailable ? (
+                <ViewTweet
+                  viewTweetRef={viewTweetRef}
+                  onReplySent={handleReplySent}
+                  {...tweet}
+                  key={tweet.id}
+                />
+              ) : (
+                <Tweet
+                  conversationTweet
+                  {...tweet}
+                  onReplySent={handleReplySent}
+                  key={tweet.id}
+                />
+              )
+            )}
+            <div className='fixed inset-x-0 bottom-20 z-20 flex justify-center pointer-events-none'>
+              <Button
+                className='pointer-events-auto rounded-full bg-main-background px-5 py-3 text-[17px]
+                           font-extrabold shadow-[0_2px_16px_rgba(0,0,0,0.24)]
+                           ring-1 ring-light-border hover:bg-light-primary/5 active:bg-light-primary/10
+                           dark:ring-dark-border dark:hover:bg-dark-primary/10'
+                onClick={(): void => setReaderModeActive(false)}
+              >
+                <span className='mr-2 text-xl leading-none'>×</span>
+                Exit Reader Mode
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             {pageTitle && <SEO title={pageTitle} />}
