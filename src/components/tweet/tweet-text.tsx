@@ -17,6 +17,7 @@ type TweetTextProps = {
   linkClassName?: string;
   tag?: 'p' | 'span' | 'div';
   disableLinks?: boolean;
+  disableDefaultSize?: boolean;
   style?: CSSProperties;
 };
 
@@ -157,6 +158,7 @@ export function TweetText({
   linkClassName,
   tag,
   disableLinks,
+  disableDefaultSize,
   style
 }: TweetTextProps): JSX.Element {
   const { hideBskySocialSuffix } = useTheme();
@@ -172,7 +174,8 @@ export function TweetText({
     <TwemojiScope
       as={Tag}
       className={cn(
-        'tweet-display-font-size whitespace-pre-line break-words',
+        !disableDefaultSize && 'tweet-display-font-size',
+        'whitespace-pre-line break-words',
         className
       )}
       style={style}

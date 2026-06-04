@@ -124,10 +124,10 @@ function CardShell({
   return (
     <div
       className={cn(
-        `group mt-2 block min-w-0 max-w-full cursor-pointer overflow-hidden rounded-2xl border
-         border-light-border text-left outline-none transition-colors
-         hover:bg-light-primary/5 focus-visible:ring-2 focus-visible:ring-main-accent
-         dark:border-dark-border dark:hover:bg-dark-primary/5`,
+        `group mt-2 block min-w-0 max-w-full cursor-pointer overflow-hidden rounded-[13px] border
+         border-light-border/90 text-left outline-none transition-colors
+         hover:bg-light-primary/[0.03] focus-visible:ring-2 focus-visible:ring-main-accent
+         dark:border-dark-border/90 dark:hover:bg-dark-primary/[0.03]`,
         className
       )}
       role='link'
@@ -1278,7 +1278,7 @@ function LinkCardImage({ card, compact }: LinkCardProps): JSX.Element | null {
 
   if (!card.image)
     return (
-      <div className='dark:bg-dark-hover flex h-full w-[94px] shrink-0 items-center justify-center bg-light-line-reply text-light-secondary dark:text-dark-secondary'>
+      <div className='dark:bg-dark-hover flex h-full w-[92px] shrink-0 items-center justify-center bg-light-line-reply text-light-secondary dark:text-dark-secondary'>
         {isStandardSiteCard(card) ? (
           <LinkCardSourceIcon
             card={card}
@@ -1294,7 +1294,7 @@ function LinkCardImage({ card, compact }: LinkCardProps): JSX.Element | null {
 
   if (compact)
     return (
-      <div className='dark:bg-dark-hover relative h-full w-[94px] shrink-0 bg-light-line-reply'>
+      <div className='dark:bg-dark-hover relative h-full w-[92px] shrink-0 bg-light-line-reply'>
         <LinkCardPreviewMedia card={card} compact />
       </div>
     );
@@ -1314,8 +1314,8 @@ function EnhancedLinkCardSourceRow({
   const meta = getEnhancedCardMeta(card, includeReadingTime);
 
   return (
-    <div className='mb-1 flex min-w-0 items-center gap-1.5 text-[13px] leading-4 text-light-secondary dark:text-dark-secondary'>
-      <LinkCardSourceIcon card={card} className='h-5 w-5' />
+    <div className='mb-0.5 flex min-w-0 items-center gap-1.5 text-[13px] leading-4 text-light-secondary dark:text-dark-secondary'>
+      <LinkCardSourceIcon card={card} className='h-4 w-4' size={16} />
       <span className='truncate'>{sourceTitle}</span>
       {meta.map((item) => (
         <span className='flex shrink-0 items-center gap-1.5' key={item}>
@@ -1366,7 +1366,7 @@ function TweetStandardSiteArticleCard({
   return (
     <article
       className={cn(
-        'mt-2 overflow-hidden rounded-2xl border border-light-border bg-main-background text-left dark:border-dark-border',
+        'mt-2 overflow-hidden rounded-[13px] border border-light-border/90 bg-main-background text-left dark:border-dark-border/90',
         !fullArticleReader &&
           'cursor-pointer transition-colors hover:bg-light-primary/[0.03] focus-visible:bg-light-primary/[0.03] focus-visible:outline-none dark:hover:bg-dark-primary/[0.03] dark:focus-visible:bg-dark-primary/[0.03]'
       )}
@@ -1377,7 +1377,7 @@ function TweetStandardSiteArticleCard({
       onKeyDown={fullArticleReader ? undefined : onEnterOrSpace(onOpenArticle)}
     >
       <ArticleCover card={card} />
-      <div className='min-w-0 px-4 py-3'>
+      <div className='min-w-0 px-3 py-2.5'>
         <EnhancedLinkCardSourceRow card={card} includeReadingTime={false} />
         <div className='flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
           <h2 className='article-heading-display-font-size min-w-0 flex-1 basis-[240px] font-extrabold text-light-primary dark:text-dark-primary'>
@@ -1512,7 +1512,7 @@ function StandardSiteArticleBody({
           ))}
         </div>
       ) : (
-        <p className='article-display-font-size line-clamp-4 text-light-primary dark:text-dark-primary'>
+        <p className='tweet-display-font-size line-clamp-4 text-light-primary dark:text-dark-primary'>
           {excerpt}
         </p>
       )}
@@ -1598,8 +1598,8 @@ function TweetYouTubeCard({
 
   return (
     <div
-      className='mt-2 overflow-hidden rounded-2xl border border-light-border bg-main-background
-                 text-left dark:border-dark-border'
+      className='mt-2 overflow-hidden rounded-[13px] border border-light-border/90 bg-main-background
+                 text-left dark:border-dark-border/90'
       onClick={stopEmbedEvent}
       onKeyDown={stopEmbedEvent}
     >
@@ -1615,10 +1615,10 @@ function TweetYouTubeCard({
         />
       </div>
       <button
-        className='flex w-full min-w-0 flex-col border-t border-light-border px-3 py-2.5
+        className='flex w-full min-w-0 flex-col border-t border-light-border/90 px-3 py-2.5
                    text-left transition-colors hover:bg-light-primary/[0.03]
                    focus-visible:bg-light-primary/[0.03] focus-visible:outline-none
-                   dark:border-dark-border dark:hover:bg-dark-primary/[0.03]
+                   dark:border-dark-border/90 dark:hover:bg-dark-primary/[0.03]
                    dark:focus-visible:bg-dark-primary/[0.03]'
         type='button'
         aria-label={`Open ${title} on YouTube`}
@@ -1688,14 +1688,14 @@ function TweetLinkCard({
   if (isCompact)
     return (
       <CardShell
-        className='min-h-[112px]'
+        className='min-h-[104px]'
         ariaLabel={title}
         onClick={openCard}
         onKeyDown={onEnterOrSpace(openCard)}
       >
-        <div className='flex h-full min-h-[112px] min-w-0 max-w-full'>
+        <div className='flex h-full min-h-[104px] min-w-0 max-w-full'>
           <LinkCardImage card={card} compact />
-          <div className='flex min-w-0 flex-1 flex-col justify-center px-3 py-2'>
+          <div className='flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5'>
             {enhanced ? (
               <EnhancedLinkCardSourceRow card={card} />
             ) : (
@@ -1705,14 +1705,14 @@ function TweetLinkCard({
             )}
             <p
               className={cn(
-                'tweet-display-font-size text-light-primary dark:text-dark-primary',
+                'text-[15px] leading-5 text-light-primary dark:text-dark-primary',
                 enhanced ? 'line-clamp-2' : 'truncate'
               )}
             >
               {title}
             </p>
             {description && (
-              <p className='line-clamp-2 text-sm text-light-secondary dark:text-dark-secondary'>
+              <p className='line-clamp-2 text-[15px] leading-5 text-light-secondary dark:text-dark-secondary'>
                 {description}
               </p>
             )}
@@ -1728,7 +1728,7 @@ function TweetLinkCard({
       onKeyDown={onEnterOrSpace(openCard)}
     >
       <LinkCardImage card={card} />
-      <div className='min-w-0 px-3 py-2'>
+      <div className='min-w-0 px-3 py-2.5'>
         {enhanced ? (
           <EnhancedLinkCardSourceRow card={card} />
         ) : (
@@ -1738,14 +1738,14 @@ function TweetLinkCard({
         )}
         <p
           className={cn(
-            'tweet-display-font-size text-light-primary dark:text-dark-primary',
+            'text-[15px] leading-5 text-light-primary dark:text-dark-primary',
             enhanced ? 'line-clamp-2' : 'truncate'
           )}
         >
           {title}
         </p>
         {description && (
-          <p className='line-clamp-2 text-sm text-light-secondary dark:text-dark-secondary'>
+          <p className='line-clamp-2 text-[15px] leading-5 text-light-secondary dark:text-dark-secondary'>
             {description}
           </p>
         )}
