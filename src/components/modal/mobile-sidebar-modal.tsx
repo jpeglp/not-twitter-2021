@@ -319,6 +319,11 @@ export function MobileSidebarModal({
                 activeIconName='TwitterProfileFilledIcon'
                 linkName='Profile'
               />
+              <MobileSidebarLink
+                href='/not-twitter-blue'
+                iconName='TwitterBlueIcon'
+                linkName='Not Twitter Blue'
+              />
             </nav>
             <i className='mx-4 h-px shrink-0 bg-light-border dark:bg-dark-border' />
             <nav className='flex flex-col py-2'>

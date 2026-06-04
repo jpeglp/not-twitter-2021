@@ -56,7 +56,6 @@ import { UserAvatar } from '@components/user/user-avatar';
 import { TweetEmbed } from '@components/tweet/tweet-embed';
 import { Modal } from '@components/modal/modal';
 import { Button } from '@components/ui/button';
-import { CustomIcon } from '@components/ui/custom-icon';
 import { HeroIcon } from '@components/ui/hero-icon';
 import { InputForm, fromTop } from './input-form';
 import { ImagePreview } from './image-preview';
@@ -104,6 +103,12 @@ type TweetSubmissionSnapshot = {
   parent: { id: string; username: string } | undefined;
   isReplying: boolean;
   replySetting: TweetReplySetting;
+};
+
+type UndoTweetPending = {
+  snapshot: TweetSubmissionSnapshot;
+  expiresAt: number;
+  durationSeconds: number;
 };
 
 function getUndoTweetKind({
@@ -328,7 +333,7 @@ function TweetDraftsModal({
   );
 }
 
-function UndoTweetToast({
+function UndoTweetComposerStatus({
   expiresAt,
   durationSeconds,
   onUndo,
@@ -340,7 +345,6 @@ function UndoTweetToast({
   onSendNow: () => void;
 }): JSX.Element {
   const [now, setNow] = useState(Date.now());
-  const secondsLeft = Math.max(0, Math.ceil((expiresAt - now) / 1000));
   const remainingRatio = Math.max(
     0,
     Math.min(1, (expiresAt - now) / (durationSeconds * 1000))
@@ -354,42 +358,30 @@ function UndoTweetToast({
   }, []);
 
   return (
-    <div
-      className='pointer-events-auto flex w-[min(calc(100vw-32px),430px)] items-center gap-3
-                 rounded-2xl border border-light-border bg-main-background p-3 text-main-primary
-                 shadow-xl dark:border-dark-border'
-    >
-      <div
-        className='grid h-11 w-11 shrink-0 place-items-center rounded-full'
-        style={{
-          background: `conic-gradient(var(--main-accent) ${progressDegrees}deg, rgba(83, 100, 113, 0.25) 0deg)`
-        }}
-      >
-        <span className='grid h-[34px] w-[34px] place-items-center rounded-full bg-main-background text-[13px] font-bold'>
-          {secondsLeft}
-        </span>
-      </div>
-      <div className='min-w-0 flex-1'>
-        <p className='text-[15px] font-bold leading-5'>Your Tweet is waiting</p>
-        <p className='text-[13px] leading-5 text-light-secondary dark:text-dark-secondary'>
-          It will send when the Undo Tweet timer ends.
-        </p>
-      </div>
-      <div className='flex shrink-0 items-center gap-1.5'>
-        <Button
-          className='accent-bg-tab accent-tab h-9 rounded-full px-3 py-0 text-sm font-bold
-                     text-main-accent hover:bg-main-accent/10 active:bg-main-accent/20'
-          onClick={onUndo}
+    <div className='mt-1 border-t border-light-border pt-2 dark:border-dark-border'>
+      <div className='flex min-h-[38px] items-center gap-3 overflow-hidden text-[15px] leading-5'>
+        <span
+          className='grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full'
+          style={{
+            background: `conic-gradient(var(--main-accent) ${progressDegrees}deg, rgba(83,100,113,0.28) 0deg)`
+          }}
         >
-          <CustomIcon className='mr-1 h-4 w-4' iconName='TwitterUndoIcon' />
-          Undo
-        </Button>
+          <span className='h-[15px] w-[15px] rounded-full bg-main-background' />
+        </span>
+        <p className='min-w-0 flex-1 truncate font-bold'>Sending Tweet…</p>
         <Button
-          className='accent-bg-tab accent-tab h-9 rounded-full px-3 py-0 text-sm font-bold
+          className='accent-tab accent-bg-tab shrink-0 px-2 py-2 text-[14px] font-bold leading-5
                      text-main-accent hover:bg-main-accent/10 active:bg-main-accent/20'
           onClick={onSendNow}
         >
           Send now
+        </Button>
+        <Button
+          className='shrink-0 rounded-full bg-main-accent px-4 py-2 text-[14px] font-bold
+                     leading-5 text-white hover:bg-main-accent/90 active:bg-main-accent/80'
+          onClick={onUndo}
+        >
+          Undo
         </Button>
       </div>
     </div>
@@ -427,6 +419,8 @@ export function Input({
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [availableDrafts, setAvailableDrafts] = useState<LocalTweetDraft[]>([]);
   const [hydratedDraftId, setHydratedDraftId] = useState<string | null>(null);
+  const [pendingUndoTweet, setPendingUndoTweet] =
+    useState<UndoTweetPending | null>(null);
 
   const { user } = useAuth();
   const activeUser = user as User;
@@ -435,7 +429,7 @@ export function Input({
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const undoTweetTimeoutRef = useRef<number | null>(null);
-  const undoTweetToastRef = useRef<string | null>(null);
+  const pendingUndoTweetRef = useRef<UndoTweetPending | null>(null);
   const quotedTweetId = quoteTweet?.id ?? null;
   const draftScope = useMemo<TweetDraftScope>(
     () => ({
@@ -598,11 +592,10 @@ export function Input({
     undoTweetTimeoutRef.current = null;
   };
 
-  const dismissUndoTweetToast = (): void => {
-    if (!undoTweetToastRef.current) return;
-
-    toast.dismiss(undoTweetToastRef.current);
-    undoTweetToastRef.current = null;
+  const clearPendingUndoTweet = (): void => {
+    clearUndoTweetTimer();
+    pendingUndoTweetRef.current = null;
+    setPendingUndoTweet(null);
   };
 
   const createSubmissionSnapshot = (): TweetSubmissionSnapshot => ({
@@ -716,42 +709,36 @@ export function Input({
     inputRef.current?.blur();
     setLoading(true);
 
-    let finished = false;
-    const finish = (): void => {
-      if (finished) return;
-
-      finished = true;
-      clearUndoTweetTimer();
-      dismissUndoTweetToast();
-      void publishTweet(snapshot);
+    const pendingTweet: UndoTweetPending = {
+      snapshot,
+      expiresAt: Date.now() + undoTweetSettings.intervalSeconds * 1000,
+      durationSeconds: undoTweetSettings.intervalSeconds
     };
-    const undo = (): void => {
-      if (finished) return;
 
-      finished = true;
-      clearUndoTweetTimer();
-      dismissUndoTweetToast();
-      setLoading(false);
-      inputRef.current?.focus();
-      toast.success('Tweet was not sent', { duration: 4000 });
-    };
-    const expiresAt = Date.now() + undoTweetSettings.intervalSeconds * 1000;
+    pendingUndoTweetRef.current = pendingTweet;
+    setPendingUndoTweet(pendingTweet);
 
     undoTweetTimeoutRef.current = window.setTimeout(
-      finish,
+      () => sendPendingUndoTweet(),
       undoTweetSettings.intervalSeconds * 1000
     );
-    undoTweetToastRef.current = toast.custom(
-      () => (
-        <UndoTweetToast
-          expiresAt={expiresAt}
-          durationSeconds={undoTweetSettings.intervalSeconds}
-          onUndo={undo}
-          onSendNow={finish}
-        />
-      ),
-      { duration: Infinity, position: 'bottom-center' }
-    );
+  };
+
+  const sendPendingUndoTweet = (): void => {
+    const pendingTweet = pendingUndoTweetRef.current;
+
+    if (!pendingTweet) return;
+
+    clearPendingUndoTweet();
+    void publishTweet(pendingTweet.snapshot);
+  };
+
+  const undoPendingTweet = (): void => {
+    if (!pendingUndoTweetRef.current) return;
+
+    clearPendingUndoTweet();
+    setLoading(false);
+    inputRef.current?.focus();
   };
 
   const sendTweet = async (): Promise<void> => {
@@ -768,8 +755,7 @@ export function Input({
 
   useEffect(
     () => () => {
-      clearUndoTweetTimer();
-      dismissUndoTweetToast();
+      clearPendingUndoTweet();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -989,11 +975,11 @@ export function Input({
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    if (!isValidTweet || loading) return;
+    if (!isValidTweet || loading || pendingUndoTweet) return;
     void sendTweet();
   };
 
-  const handleFocus = (): void => setVisited(!loading);
+  const handleFocus = (): void => setVisited(!loading && !pendingUndoTweet);
 
   const formId = useId();
 
@@ -1004,6 +990,7 @@ export function Input({
   const shouldCompactQuotedTweetPreview =
     isUploadingImages || !!activeExternalCard;
   const showModalHeader = !!modal && !replyModal && !!closeModal;
+  const isUndoTweetPending = !!pendingUndoTweet;
 
   const inputLength = useMemo(
     () =>
@@ -1052,7 +1039,16 @@ export function Input({
           >
             <HeroIcon className='h-5 w-5' iconName='XMarkIcon' />
           </Button>
-          {!quoteTweet && (
+          {isUndoTweetPending ? (
+            <Button
+              className='accent-tab h-9 rounded-full bg-main-accent px-4 py-0 text-[15px]
+                         font-bold leading-5 text-white hover:bg-main-accent/90
+                         active:bg-main-accent/75'
+              onClick={sendPendingUndoTweet}
+            >
+              Send now
+            </Button>
+          ) : !quoteTweet ? (
             <Button
               className='accent-tab accent-bg-tab px-4 py-2 text-[15px] font-bold
                          leading-5 text-main-accent hover:bg-main-accent/10
@@ -1061,7 +1057,7 @@ export function Input({
             >
               Unsent Tweets
             </Button>
-          )}
+          ) : null}
         </header>
       )}
       {children}
@@ -1110,6 +1106,7 @@ export function Input({
             formId={formId}
             visited={visited}
             loading={loading}
+            readOnly={isUndoTweetPending}
             inputRef={inputRef}
             replyModal={replyModal}
             inputValue={inputValue}
@@ -1118,6 +1115,16 @@ export function Input({
             isUploadingImages={isUploadingImages}
             setReplySetting={setReplySetting}
             sendTweet={sendTweet}
+            footerStatus={
+              pendingUndoTweet ? (
+                <UndoTweetComposerStatus
+                  expiresAt={pendingUndoTweet.expiresAt}
+                  durationSeconds={pendingUndoTweet.durationSeconds}
+                  onUndo={undoPendingTweet}
+                  onSendNow={sendPendingUndoTweet}
+                />
+              ) : undefined
+            }
             handleHashtagSelect={handleHashtagSelect}
             handleMentionSelect={handleMentionSelect}
             handleFocus={handleFocus}
@@ -1158,6 +1165,7 @@ export function Input({
                 inputLength={inputLength}
                 isValidTweet={isValidTweet}
                 isCharLimitExceeded={isCharLimitExceeded}
+                hideSubmit={isUndoTweetPending}
                 handleImageUpload={handleImageUpload}
                 handleEmojiSelect={handleEmojiSelect}
                 handleGifSelect={handleGifSelect}

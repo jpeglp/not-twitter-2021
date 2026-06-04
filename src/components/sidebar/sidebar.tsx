@@ -105,6 +105,12 @@ export function Sidebar(): JSX.Element {
               iconName='TwitterProfileIcon'
               activeIconName='TwitterProfileFilledIcon'
             />
+            <SidebarLink
+              href='/not-twitter-blue'
+              linkName='Not Twitter Blue'
+              iconName='TwitterBlueIcon'
+              canBeHidden
+            />
             {!isMobile && <MoreSettings />}
           </nav>
           <Button

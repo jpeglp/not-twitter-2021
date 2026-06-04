@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export const undoTweetIntervals = [5, 10, 20, 30, 60] as const;
-export const undoTweetKinds = ['tweet', 'reply', 'quote'] as const;
+export const undoTweetKinds = [
+  'tweet',
+  'reply',
+  'quote',
+  'thread',
+  'poll'
+] as const;
 
 export type UndoTweetInterval = typeof undoTweetIntervals[number];
 export type UndoTweetKind = typeof undoTweetKinds[number];
@@ -21,7 +27,9 @@ const defaultUndoTweetSettings: UndoTweetSettings = {
   kinds: {
     tweet: true,
     reply: true,
-    quote: true
+    quote: true,
+    thread: true,
+    poll: true
   }
 };
 
@@ -60,7 +68,15 @@ function readUndoTweetSettings(): UndoTweetSettings {
         quote:
           typeof parsedKinds.quote === 'boolean'
             ? parsedKinds.quote
-            : defaultUndoTweetSettings.kinds.quote
+            : defaultUndoTweetSettings.kinds.quote,
+        thread:
+          typeof parsedKinds.thread === 'boolean'
+            ? parsedKinds.thread
+            : defaultUndoTweetSettings.kinds.thread,
+        poll:
+          typeof parsedKinds.poll === 'boolean'
+            ? parsedKinds.poll
+            : defaultUndoTweetSettings.kinds.poll
       }
     };
   } catch {
