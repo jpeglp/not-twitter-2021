@@ -282,7 +282,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'software',
       'tech',
       'technology',
-      'technological'
+      'technological',
       'twitter',
       'threads',
       'web dev',
