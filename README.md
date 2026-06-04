@@ -1,10 +1,13 @@
 # Not Twitter '21
 
-This is Not Twitter. 
-
-https://jpeglp.github.io/not-twitter-2021/
+This is Not Twitter... 2021 :)
 
 <img src="https://github.com/jpeglp/not-twitter-2021/blob/f7b9a40c769b81f8290127aa112ef1a7d6907874/home-example.png" />
+
+## What's different?
+Almost all of the iconography is replaced with the older versions from Twitter, focusing more on accuracy to 2021 Twitter, with text, colors, fonts, and style.
+
+https://jpeglp.github.io/not-twitter-2021/
 
 It looks suspiciously like Twitter, scrolls suspiciously like Twitter, and may
 even trigger the same muscle memory as Twitter. But legally, spiritually, and
