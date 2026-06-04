@@ -62,7 +62,6 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'sara jacobs': 'Politics',
   'mette frederiksen': 'Politics',
   'medicaid funding': 'Politics'
-  habs: 'Sports',
   'hull fc': 'Sports',
   'ice protests': 'Politics',
   'indie games': 'Gaming',
