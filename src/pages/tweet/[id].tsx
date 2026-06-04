@@ -95,9 +95,9 @@ const readerTextSizeClassName: Record<
   NotTwitterBlueSettings['readerTextSize'],
   string
 > = {
-  small: 'text-[18px] leading-7',
-  medium: 'text-[21px] leading-8',
-  large: 'text-[24px] leading-9'
+  small: 'text-[20px] leading-7',
+  medium: 'text-[24px] leading-8',
+  large: 'text-[28px] leading-10'
 };
 
 function ReaderModeThread({
@@ -117,13 +117,8 @@ function ReaderModeThread({
 
   return (
     <>
-      <div className='border-b border-light-border px-4 py-3 dark:border-dark-border'>
-        <p className='text-center text-[13px] font-bold leading-4 text-light-secondary dark:text-dark-secondary'>
-          Reader Mode
-        </p>
-      </div>
-      <article className='border-b border-light-border px-4 py-4 dark:border-dark-border'>
-        <header className='mb-5 flex items-center gap-3'>
+      <article className='border-b border-light-border px-4 pt-4 pb-28 dark:border-dark-border'>
+        <header className='mb-6 flex items-center gap-3'>
           <UserAvatar
             src={user.photoURL}
             alt={user.name}
@@ -138,7 +133,7 @@ function ReaderModeThread({
             <UserUsername username={user.username} />
           </div>
         </header>
-        <div className='flex flex-col gap-5'>
+        <div className='flex flex-col gap-6'>
           {tweets.map((tweet, index) => {
             const displayCard = tweet.card;
             const hasMedia = !!tweet.images?.length;
@@ -148,7 +143,7 @@ function ReaderModeThread({
               <section
                 className={cn(
                   index > 0 &&
-                    'border-t border-light-border pt-5 dark:border-dark-border'
+                    'border-t border-light-border pt-6 dark:border-dark-border'
                 )}
                 key={tweet.id}
               >
@@ -159,25 +154,33 @@ function ReaderModeThread({
                       readerTextSizeClassName[textSize]
                     )}
                     linkClassName='text-main-accent'
+                    disableDefaultSize
                     text={tweet.text}
                   />
                 )}
                 {hasMedia && (
-                  <ImagePreview
-                    tweet
-                    tweetData={tweet}
-                    imagesPreview={tweet.images ?? []}
-                    previewCount={tweet.images?.length ?? 0}
-                    moderationWarning={tweet.mediaWarning}
-                  />
+                  <div className={tweet.text ? 'mt-4' : undefined}>
+                    <ImagePreview
+                      tweet
+                      tweetData={tweet}
+                      imagesPreview={tweet.images ?? []}
+                      previewCount={tweet.images?.length ?? 0}
+                      moderationWarning={tweet.mediaWarning}
+                    />
+                  </div>
                 )}
                 {hasEmbed && (
-                  <TweetEmbed
-                    card={displayCard}
-                    quotedTweet={tweet.quotedTweet}
-                    articleAuthor={tweet.user}
-                    articleTweetPath={getTweetPath(tweet.id, tweet.user.username)}
-                  />
+                  <div className={tweet.text || hasMedia ? 'mt-4' : undefined}>
+                    <TweetEmbed
+                      card={displayCard}
+                      quotedTweet={tweet.quotedTweet}
+                      articleAuthor={tweet.user}
+                      articleTweetPath={getTweetPath(
+                        tweet.id,
+                        tweet.user.username
+                      )}
+                    />
+                  </div>
                 )}
               </section>
             );
@@ -428,6 +431,7 @@ export default function TweetId(): JSX.Element {
       <MainHeader
         useActionButton
         title={hasThread ? 'Thread' : 'Tweet'}
+        subtitle={readerModeActive ? 'Reader Mode' : undefined}
         action={routeBack}
       >
         {readerModeAvailable && (
@@ -442,7 +446,7 @@ export default function TweetId(): JSX.Element {
           >
             <HeroIcon
               className='h-5 w-5'
-              iconName={readerModeActive ? 'XMarkIcon' : 'BookOpenIcon'}
+              iconName='BookOpenIcon'
             />
           </Button>
         )}
