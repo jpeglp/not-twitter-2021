@@ -41,6 +41,13 @@ import { useTheme } from '@lib/context/theme-context';
 import { useWindow } from '@lib/context/window-context';
 import { useModal } from '@lib/hooks/useModal';
 import { useStandardSiteArticlesInline } from '@lib/hooks/use-standard-site-articles-inline';
+import {
+  undoTweetKinds,
+  undoTweetIntervals,
+  useUndoTweetSettings,
+  type UndoTweetInterval,
+  type UndoTweetKind
+} from '@lib/hooks/use-undo-tweet-settings';
 import { MainLayout } from '@components/layout/main-layout';
 import { ProtectedLayout } from '@components/layout/common-layout';
 import { SEO } from '@components/common/seo';
@@ -272,6 +279,24 @@ const CHAT_OPTIONS: Readonly<{ value: ChatAllowIncoming; label: string }[]> = [
   { value: 'following', label: 'People you follow' },
   { value: 'none', label: 'No one' }
 ];
+
+const UNDO_TWEET_KIND_LABELS: Record<
+  UndoTweetKind,
+  { title: string; description: string }
+> = {
+  tweet: {
+    title: 'Original Tweets',
+    description: 'Delay new standalone Tweets before publishing.'
+  },
+  reply: {
+    title: 'Replies',
+    description: 'Delay replies before they appear in the conversation.'
+  },
+  quote: {
+    title: 'Quote Tweets',
+    description: 'Delay Quote Tweets before publishing.'
+  }
+};
 
 const THREAD_SORT_OPTIONS: Readonly<
   { value: SettingsThreadSort; label: string }[]
@@ -765,6 +790,12 @@ export default function Settings(): JSX.Element {
   const { hideBskySocialSuffix, toggleHideBskySocialSuffix } = useTheme();
   const { standardSiteArticlesInline, toggleStandardSiteArticlesInline } =
     useStandardSiteArticlesInline();
+  const {
+    undoTweetSettings,
+    setUndoTweetEnabled,
+    setUndoTweetIntervalSeconds,
+    setUndoTweetKindEnabled
+  } = useUndoTweetSettings();
   const { isMobile } = useWindow();
   const router = useRouter();
   const displayModal = useModal();
@@ -1265,7 +1296,7 @@ export default function Settings(): JSX.Element {
       <>
         <SectionHeading
           title='Privacy and safety'
-          description='Controls here are backed by Bluesky preferences, post interaction settings, or the chat declaration record.'
+          description='Controls here are backed by Bluesky preferences, post interaction settings, the chat declaration record, or local compose settings.'
         />
         <SettingsRow
           title='Privacy policy'
@@ -1302,6 +1333,93 @@ export default function Settings(): JSX.Element {
               }
             />
           )}
+        </SettingsRow>
+        <SettingsRow
+          title='Undo Tweet'
+          description='Hold eligible Tweets briefly before publishing so you can undo them, revise the composer, or send immediately.'
+        >
+          <div className='flex flex-col items-end gap-3 sm:flex-row sm:items-center'>
+            <Toggle
+              checked={undoTweetSettings.enabled}
+              label='Undo Tweet'
+              onChange={(): void =>
+                setUndoTweetEnabled(!undoTweetSettings.enabled)
+              }
+            />
+            <label
+              className={cn(
+                'flex items-center gap-2 text-sm font-bold',
+                !undoTweetSettings.enabled &&
+                  'text-light-secondary dark:text-dark-secondary'
+              )}
+            >
+              <span>Period</span>
+              <select
+                className={cn(
+                  fieldClassName,
+                  'h-9 min-w-[92px] rounded-full py-0 text-sm font-bold'
+                )}
+                disabled={!undoTweetSettings.enabled}
+                value={undoTweetSettings.intervalSeconds}
+                onChange={(event): void =>
+                  setUndoTweetIntervalSeconds(
+                    Number(event.target.value) as UndoTweetInterval
+                  )
+                }
+              >
+                {undoTweetIntervals.map((intervalSeconds) => (
+                  <option value={intervalSeconds} key={intervalSeconds}>
+                    {intervalSeconds} seconds
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </SettingsRow>
+        <SettingsRow
+          title='Undo applies to'
+          description='Choose which compose surfaces use the Undo Tweet delay.'
+          stack
+        >
+          <div className='grid gap-3 sm:grid-cols-3'>
+            {undoTweetKinds.map((kind) => {
+              const { title, description } = UNDO_TWEET_KIND_LABELS[kind];
+
+              return (
+                <label
+                  className={cn(
+                    `flex min-h-[104px] flex-col justify-between rounded-lg border border-light-border
+                     p-3 dark:border-dark-border`,
+                    !undoTweetSettings.enabled && 'opacity-60'
+                  )}
+                  key={kind}
+                >
+                  <span>
+                    <span className='block text-[15px] font-bold'>{title}</span>
+                    <span className='mt-1 block text-[13px] leading-5 text-light-secondary dark:text-dark-secondary'>
+                      {description}
+                    </span>
+                  </span>
+                  <span className='mt-3 flex items-center justify-between gap-3'>
+                    <span className='text-sm font-bold'>
+                      {undoTweetSettings.kinds[kind] ? 'On' : 'Off'}
+                    </span>
+                    <Toggle
+                      checked={undoTweetSettings.kinds[kind]}
+                      disabled={!undoTweetSettings.enabled}
+                      label={`${title} Undo Tweet`}
+                      onChange={(): void =>
+                        setUndoTweetKindEnabled(
+                          kind,
+                          !undoTweetSettings.kinds[kind]
+                        )
+                      }
+                    />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </SettingsRow>
         <SettingsRow
           title='Quote posts'

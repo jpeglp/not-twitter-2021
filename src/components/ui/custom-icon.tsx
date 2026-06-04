@@ -54,6 +54,7 @@ const Icons = {
   TwitterPollIcon,
   TwitterEmojiIcon,
   TwitterSendIcon,
+  TwitterUndoIcon,
   TwitterCheckIcon,
   TwitterDoubleCheckIcon,
   TwitterCalendarIcon,
@@ -420,6 +421,14 @@ function TwitterSendIcon({ className }: IconProps): JSX.Element {
   return (
     <TwitterSvgIcon className={className}>
       <path d='M2.5 21.866L23.236 12 2.5 2.134v7.658L17.06 12 2.5 14.208v7.658zM4.5 5.328L17.74 12 4.5 18.672v-2.747L11.394 14v-4L4.5 8.075V5.328z' />
+    </TwitterSvgIcon>
+  );
+}
+
+function TwitterUndoIcon({ className }: IconProps): JSX.Element {
+  return (
+    <TwitterSvgIcon className={className}>
+      <path d='m6.29 2.29 1.42 1.42L5.41 6H15c3.87 0 7 3.13 7 7s-3.13 7-7 7H8v-2h7c2.76 0 5-2.24 5-5s-2.24-5-5-5H5.41l2.3 2.29-1.42 1.42L1.59 7l4.7-4.71Z' />
     </TwitterSvgIcon>
   );
 }
