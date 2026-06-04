@@ -132,18 +132,6 @@ function SettingsRow({
   );
 }
 
-function BlueWordmark(): JSX.Element {
-  return (
-    <div className='flex items-center gap-2 text-[28px] font-extrabold leading-8'>
-      <CustomIcon
-        className='h-[26px] w-[26px] text-light-primary dark:text-dark-primary'
-        iconName='TwitterBlueIcon'
-      />
-      <span>Blue</span>
-    </div>
-  );
-}
-
 function NotTwitterBlueLanding({
   openUndoTweet
 }: {
@@ -154,12 +142,6 @@ function NotTwitterBlueLanding({
       <header className='flex h-[53px] items-center border-b border-light-border px-4 dark:border-dark-border'>
         <h2 className='text-[23px] font-extrabold leading-7'>Not Twitter Blue</h2>
       </header>
-      <section className='flex items-center gap-6 border-b border-light-border px-4 py-5 dark:border-dark-border'>
-        <BlueWordmark />
-        <p className='text-[17px] leading-6 text-light-secondary dark:text-dark-secondary'>
-          Your subscription is active.
-        </p>
-      </section>
       <section>
         <h3 className='px-4 pt-6 pb-3 text-[25px] font-extrabold leading-8'>
           Feature Settings
