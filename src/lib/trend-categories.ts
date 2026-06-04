@@ -61,7 +61,7 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'marco rubio': 'Politics',
   'sara jacobs': 'Politics',
   'mette frederiksen': 'Politics',
-  'medicaid funding': 'Politics'
+  'medicaid funding': 'Politics',
   'hull fc': 'Sports',
   'ice protests': 'Politics',
   'indie games': 'Gaming',
@@ -185,6 +185,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'manchester united',
       'mlb',
       'nba',
+      'aew',
       'nfl',
       'ufc',
       'nhl',
