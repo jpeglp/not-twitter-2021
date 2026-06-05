@@ -4,8 +4,14 @@ This is Not Twitter... 2021 :)
 
 <img src="https://github.com/jpeglp/not-twitter-2021/blob/f7b9a40c769b81f8290127aa112ef1a7d6907874/home-example.png" />
 
-## What's different?
-Almost all of the iconography is replaced with the older versions from Twitter, focusing more on accuracy to 2021 Twitter, with text, colors, fonts, and style.
+## What's different from the original Not Twitter?
+Almost all of the iconography is replaced with the older versions from Twitter, focusing more on accuracy to 2021 Twitter, with profiles, colors, fonts, and style.
+
+The default feed has been replaced with the "[For You](https://foryou.club)" feed by spacecowboy, delivering the posts you'll actually want using your likes.
+
+Official Bluesky accounts like, @bsky.app, @jp.bsky.app, @support.bsky.team, and @atproto.com have changed to have the equivalent of Twitter's 2021 banners and profile pictures.
+
+<img src="https://github.com/jpeglp/not-twitter-2021/blob/6e820fc2503d93f4228072b9ec5b22991de57e07/example-profiles.jpg" />
 
 https://jpeglp.github.io/not-twitter-2021/
 
