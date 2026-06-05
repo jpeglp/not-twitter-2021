@@ -38,6 +38,7 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'andy burnham': 'Politics',
   'ben palmer': 'Politics',
   'bari weiss': 'Politics',
+  'ken paxton': 'Politics',
   'backrooms': 'Entertainment',
   'bfc registration': 'Events',
   'blue sky art show': 'Arts',
@@ -53,6 +54,7 @@ const TREND_CATEGORY_OVERRIDES: Record<string, string> = {
   'european cities': 'World',
   'euphoria': 'Entertainment',
   'god of war': 'Gaming',
+  'summer game fest': 'Gaming',
   'jack quaid': 'Entertainment',
   'james bond': 'Entertainment',
   'state of play': 'Entertainment',
@@ -165,6 +167,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
       'president',
       'prime minister',
       'protest',
+      'protests',
       'republican',
       'redistricting',
       'senate',
@@ -346,7 +349,7 @@ const TREND_CATEGORY_RULES: readonly TrendCategoryRule[] = [
   },
   {
     category: 'News',
-    keywords: ['breaking news', 'headline', 'news', 'journalism', 'report']
+    keywords: ['breaking news', 'headline', 'news', 'journalism', 'report','epstein']
   }
 ] as const;
 
