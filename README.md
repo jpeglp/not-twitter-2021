@@ -2,7 +2,7 @@
 
 This is Not Twitter... 2021 :)
 
-<img src="https://github.com/jpeglp/not-twitter-2021/blob/f7b9a40c769b81f8290127aa112ef1a7d6907874/home-example.png" />
+<img src="https://github.com/jpeglp/not-twitter-2021/blob/de2f1dd665fa74a303d17e1d7c2087ec82db8dac/promo-home.jpg" />
 
 ## What's different from the original Not Twitter?
 Almost all of the iconography is replaced with the older versions from Twitter, focusing more on accuracy to 2021 Twitter, with profiles, colors, fonts, style and more.
