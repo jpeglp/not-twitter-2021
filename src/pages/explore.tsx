@@ -13,7 +13,7 @@ import {
 import { MainLayout } from '@components/layout/main-layout';
 import { SEO } from '@components/common/seo';
 import { MainContainer } from '@components/home/main-container';
-import { variants } from '@components/aside/aside-trends';
+import { AsideTrends, variants } from '@components/aside/aside-trends';
 import { SearchBar } from '@components/aside/search-bar';
 import { MobileSidebar } from '@components/sidebar/mobile-sidebar';
 import { Tweet } from '@components/tweet/tweet';
@@ -422,6 +422,10 @@ export default function Explore(): JSX.Element {
         </>
       ) : (
         <>
+          <div className='border-y border-light-border px-4 py-3 dark:border-dark-border'>
+            <h1 className='text-xl font-extrabold'>What's happening</h1>
+          </div>
+          <AsideTrends inTrendsPage />
           <DiscoverTabs />
           <DiscoverFeed />
         </>

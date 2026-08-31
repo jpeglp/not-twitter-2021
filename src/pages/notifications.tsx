@@ -257,8 +257,7 @@ function isTweetNotification(reason: NotificationReason): boolean {
   return (
     reason === 'mention' ||
     reason === 'reply' ||
-    reason === 'quote' ||
-    reason === 'subscribed-post'
+    reason === 'quote'
   );
 }
 
@@ -275,7 +274,8 @@ function getActivityGroupKey(notification: NotificationItem): string | null {
 
   if (
     notification.reason === 'follow' ||
-    notification.reason === 'starterpack-joined'
+    notification.reason === 'starterpack-joined' ||
+    notification.reason === 'subscribed-post'
   )
     return `${notification.reason}:${getFollowBucket(notification)}`;
 
@@ -434,6 +434,27 @@ function GroupedNotificationText({
   const { action } = getReasonMeta(group.reason);
   const othersCount = group.users.length - 1;
 
+  if (group.reason === 'subscribed-post')
+    return (
+      <p className='mt-2 break-words text-[15px] leading-5'>
+        New Tweet notifications for{' '}
+        <UserName
+          tag='span'
+          name={firstUser.name}
+          username={firstUser.username}
+          verified={firstUser.verified}
+          iconClassName='h-4 w-4'
+          className='inline-flex max-w-[220px] align-bottom'
+          disableUnderline
+        />
+        {othersCount > 0 && (
+          <>
+            {' '}and {othersCount} other{othersCount === 1 ? '' : 's'}
+          </>
+        )}
+      </p>
+    );
+
   return (
     <p className='mt-2 break-words text-[15px] leading-5'>
       <UserName
@@ -517,7 +538,7 @@ function ActivityNotificationRow({
           </div>
         </div>
         <GroupedNotificationText group={group} />
-        {text && (
+        {group.reason !== 'subscribed-post' && text && (
           <Link href={targetHref}>
             <a
               className='mt-3 block rounded-sm text-light-secondary outline-none
