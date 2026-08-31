@@ -103,6 +103,7 @@ const OAUTH_SCOPES = [
   'identity:handle'
 ];
 const OAUTH_SCOPE = OAUTH_SCOPES.join(' ');
+const BSKY_POST_IMAGE_MAX_COUNT = 10;
 const BSKY_POST_IMAGE_MAX_BYTES = 2_000_000;
 const BSKY_POST_IMAGE_TARGET_BYTES = 1_900_000;
 const BSKY_EXTERNAL_THUMB_MAX_BYTES = 1_000_000;
@@ -592,6 +593,10 @@ export type ChatMessage = {
 
 export type ChatConvo = {
   id: string;
+  kind: 'direct' | 'group' | string;
+  groupName: string | null;
+  memberCount: number | null;
+  memberLimit: number | null;
   muted: boolean;
   opened: boolean;
   unreadCount: number;
@@ -2356,6 +2361,17 @@ function embedHasMalformedImageBlob(embed: unknown): boolean {
     embedHasMalformedImageBlob(embed.media)
   )
     return true;
+
+  if (
+    embed.$type === 'app.bsky.embed.gallery' &&
+    Array.isArray(embed.items)
+  ) {
+    return embed.items.some(
+      (image) =>
+        isPlainObject(image) &&
+        isMalformedImageBlob((image as { image?: unknown }).image)
+    );
+  }
 
   if (embed.$type !== 'app.bsky.embed.images' || !Array.isArray(embed.images))
     return false;
@@ -5127,6 +5143,52 @@ function mapMedia(embed: unknown): ImagesPreview | null {
       ];
   }
 
+  if (
+    isPlainObject(embed) &&
+    (embed.$type === 'app.bsky.embed.gallery' ||
+      embed.$type === 'app.bsky.embed.gallery#view') &&
+    Array.isArray(embed.items)
+  ) {
+    const galleryImages = embed.items
+      .map((image, index) => {
+        if (!isPlainObject(image)) return null;
+
+        const src =
+          typeof image.fullsize === 'string'
+            ? image.fullsize
+            : typeof image.thumbnail === 'string'
+            ? image.thumbnail
+            : null;
+        if (!src) return null;
+
+        const altText = typeof image.alt === 'string' ? image.alt.trim() : '';
+        const aspectRatioValue = isPlainObject(image.aspectRatio)
+          ? image.aspectRatio
+          : null;
+        const aspectRatio =
+          isPlainObject(aspectRatioValue) &&
+          typeof aspectRatioValue.width === 'number' &&
+          typeof aspectRatioValue.height === 'number'
+            ? {
+                width: aspectRatioValue.width,
+                height: aspectRatioValue.height
+              }
+            : null;
+
+        return {
+          id: `${src}-${index}`,
+          src,
+          alt: altText || 'Image',
+          altText: altText || null,
+          type: /\.gif($|\?)/i.test(src) ? 'gif' : 'image',
+          aspectRatio
+        };
+      })
+      .filter((item): item is NonNullable<ImagesPreview[number]> => !!item);
+
+    return galleryImages;
+  }
+
   if (AppBskyEmbedImages.isView(embed))
     return (embed as AppBskyEmbedImages.View).images.map((image, index) => {
       const altText = image.alt?.trim() ?? '';
@@ -7663,6 +7725,49 @@ function getChatConvoMemberProfiles(
   return convo.members as unknown as ActorProfileView[];
 }
 
+function getRawType(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const { $type } = value as { $type?: unknown };
+
+  return typeof $type === 'string' ? $type : null;
+}
+
+function getChatConvoKind(
+  kind: ChatBskyConvoDefs.ConvoView['kind']
+): 'direct' | 'group' | string {
+  const rawType = getRawType(kind);
+
+  if (rawType === 'chat.bsky.convo.defs#groupConvo') return 'group';
+  if (rawType === 'chat.bsky.convo.defs#directConvo') return 'direct';
+
+  return rawType ?? 'direct';
+}
+
+function getChatConvoGroupData(kind: ChatBskyConvoDefs.ConvoView['kind']): {
+  name: string | null;
+  memberCount: number | null;
+  memberLimit: number | null;
+} {
+  if (!kind || typeof kind !== 'object') {
+    return { name: null, memberCount: null, memberLimit: null };
+  }
+
+  const group = kind as {
+    name?: unknown;
+    memberCount?: unknown;
+    memberLimit?: unknown;
+  };
+
+  return {
+    name: typeof group.name === 'string' ? group.name : null,
+    memberCount:
+      typeof group.memberCount === 'number' ? group.memberCount : null,
+    memberLimit:
+      typeof group.memberLimit === 'number' ? group.memberLimit : null
+  };
+}
+
 function getHydratedChatUser(
   profile: ActorProfileView,
   usersByDid?: Map<string, User>
@@ -7697,6 +7802,7 @@ async function mapChatConvo(
     opened?: unknown;
     status?: unknown;
   };
+  const groupData = getChatConvoGroupData(convo.kind);
   const memberProfiles = getChatConvoMemberProfiles(convo);
   const users = usersByDid
     ? memberProfiles.map((profile) => getHydratedChatUser(profile, usersByDid))
@@ -7705,6 +7811,10 @@ async function mapChatConvo(
 
   return {
     id: convo.id,
+    kind: getChatConvoKind(convo.kind),
+    groupName: groupData.name,
+    memberCount: groupData.memberCount,
+    memberLimit: groupData.memberLimit,
     muted: convo.muted,
     opened: !!convoRecord.opened,
     unreadCount: convo.unreadCount,
@@ -8030,19 +8140,67 @@ export async function markChatConvoRead(
 }
 
 export async function getChatConvoForActor(actor: string): Promise<ChatConvo> {
-  const user = await getUser(actor);
+  return getChatConvoForMembers([actor]);
+}
 
-  if (!user) throw new Error('That Bluesky account could not be found.');
-  if (user.id === sessionDid) {
-    throw new Error('You cannot start a message thread with yourself.');
+export async function getChatConvoForMembers(
+  actors: string[],
+  groupName?: string
+): Promise<ChatConvo> {
+  const normalizedActors = actors.map((actor) => actor.trim()).filter(Boolean);
+  const actorIds = new Set<string>();
+  const users = await Promise.all(
+    normalizedActors.map((actor) => getUser(actor))
+  );
+  const missingActor = normalizedActors.find((actor, index) => !users[index]);
+
+  if (!normalizedActors.length || !users.length)
+    throw new Error('Choose at least one person to message.');
+
+  if (missingActor)
+    throw new Error(`${missingActor} could not be found on Bluesky.`);
+
+  users.forEach((user) => {
+    if (!user) return;
+
+    if (user.id === sessionDid)
+      throw new Error('You cannot start a message thread with yourself.');
+
+    actorIds.add(user.id);
+  });
+
+  const members = Array.from(actorIds);
+
+  if (!members.length) throw new Error('Choose someone else to message.');
+  if (members.length > 49)
+    throw new Error('Bluesky group chats can include up to 49 other people.');
+
+  if (members.length === 1) {
+    const response = await callChat(() =>
+      getChatAgent().chat.bsky.convo.getConvoForMembers({
+        members
+      })
+    );
+
+    return mapChatConvo(response.data.convo);
   }
 
+  const trimmedGroupName = groupName?.trim();
+  const normalizedGroupName = trimmedGroupName
+    ? trimmedGroupName
+    : users
+        .filter((user): user is User => !!user)
+        .map(({ name }) => name)
+        .join(', ');
+
   const response = await callChat(() =>
-    getChatAgent().chat.bsky.convo.getConvoForMembers({
-      members: [user.id]
+    getChatAgent().chat.bsky.group.createGroup({
+      members,
+      name: normalizedGroupName.slice(0, 50)
     })
   );
 
+  notify();
   return mapChatConvo(response.data.convo);
 }
 
@@ -9501,16 +9659,18 @@ export async function addTweet(data: AddTweetData): Promise<Tweet> {
   const videoUploads = images.filter(isVideoUpload);
 
   if (imageUploads.length && videoUploads.length)
-    throw new Error('Bluesky allows either one video or up to 4 images.');
+    throw new Error('Bluesky allows either one video or up to 10 images.');
+
+  if (imageUploads.length > BSKY_POST_IMAGE_MAX_COUNT)
+    throw new Error('Bluesky allows up to 10 images per Tweet.');
 
   if (videoUploads.length > 1)
     throw new Error('Bluesky allows only one video per Tweet.');
 
-  const imageEmbed = imageUploads.length
-    ? {
-        $type: 'app.bsky.embed.images',
-        images: await Promise.all(
-          imageUploads.slice(0, 4).map(async ({ file, preview }) => {
+  const imageUploadsData =
+    imageUploads.length > 0
+      ? await Promise.all(
+          imageUploads.map(async ({ file, preview }) => {
             const preparedImage = await prepareImageForBluesky(file);
             const upload = await api.uploadBlob(preparedImage.file, {
               encoding: preparedImage.encoding
@@ -9526,8 +9686,21 @@ export async function addTweet(data: AddTweetData): Promise<Tweet> {
             };
           })
         )
-      }
-    : undefined;
+      : undefined;
+  const imageEmbed =
+    imageUploads.length > 4
+      ? imageUploadsData
+        ? ({
+            $type: 'app.bsky.embed.gallery',
+            items: imageUploadsData
+          } as const)
+        : undefined
+      : imageUploadsData
+        ? ({
+            $type: 'app.bsky.embed.images',
+            images: imageUploadsData
+          } as const)
+        : undefined;
   const videoEmbed = videoUploads[0]
     ? await uploadVideoForBluesky(videoUploads[0])
     : undefined;

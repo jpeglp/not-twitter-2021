@@ -46,6 +46,7 @@ type BlueskyPostVideoExtensions = typeof BLUESKY_POST_VIDEO_EXTENSIONS[number];
 
 const BLUESKY_POST_IMAGE_MAX_BYTES = 20 * Math.pow(1024, 2);
 const BLUESKY_POST_VIDEO_MAX_BYTES = 100_000_000;
+const BSKY_POST_IMAGE_MAX_COUNT = 10;
 
 function isValidImageExtension(
   extension: string
@@ -130,16 +131,18 @@ export function getImagesData(
   if (!files || !files.length) return null;
 
   const singleEditingMode = currentFiles === undefined;
+  if (
+    !singleEditingMode &&
+    (currentFiles >= BSKY_POST_IMAGE_MAX_COUNT ||
+      files.length > BSKY_POST_IMAGE_MAX_COUNT - currentFiles)
+  )
+    return null;
 
-  const rawImages =
-    singleEditingMode ||
-    !(currentFiles === 4 || files.length > 4 - currentFiles)
-      ? Array.from(files).filter(({ name, size }) =>
-          allowUploadingVideos
-            ? isValidBlueskyPostMedia(name, size)
-            : isValidImage(name, size)
-        )
-      : null;
+  const rawImages = Array.from(files).filter(({ name, size }) =>
+    allowUploadingVideos
+      ? isValidBlueskyPostMedia(name, size)
+      : isValidImage(name, size)
+  );
 
   if (!rawImages || !rawImages.length) return null;
 

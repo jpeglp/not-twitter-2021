@@ -284,13 +284,14 @@ export function ImagePreview({
   const isTweet = tweet ?? viewTweet;
   const mediaCount =
     imagesPreview.length > 0 ? imagesPreview.length : previewCount;
-  const visibleMedia = imagesPreview.slice(0, 4);
+  const useCarousel = isTweet && mediaCount > 4;
+  const visibleMedia = useCarousel ? imagesPreview : imagesPreview.slice(0, 4);
   const visiblePreviewCount = Math.min(mediaCount, 4);
   const firstMedia = imagesPreview[0];
-  const singleMedia = visiblePreviewCount === 1;
+  const singleMedia = !useCarousel && visiblePreviewCount === 1;
   const tweetMediaStyle = getTweetMediaStyle({
     isTweet,
-    previewCount: visiblePreviewCount,
+    previewCount: singleMedia ? visiblePreviewCount : visibleMedia.length,
     media: firstMedia
   });
   const singleGif = singleMedia && !!firstMedia && isGifMedia(firstMedia);
@@ -316,24 +317,33 @@ export function ImagePreview({
   return (
     <div
       className={cn(
-        'relative grid rounded-2xl',
-        singleMedia ? 'grid-cols-1 grid-rows-1' : 'grid-cols-2 grid-rows-2',
+        useCarousel
+          ? 'relative flex w-full gap-2 overflow-x-auto overflow-y-hidden py-2 scrollbar-hidden snap-x snap-mandatory rounded-2xl'
+          : 'relative grid rounded-2xl',
+        !useCarousel &&
+          (singleMedia
+            ? 'grid-cols-1 grid-rows-1'
+            : 'grid-cols-2 grid-rows-2'),
         isTweet
-          ? `dark:bg-dark-hover mt-2 w-full overflow-hidden border border-light-border
+          ? `dark:bg-dark-hover mt-2 w-full border border-light-border
              bg-light-line-reply dark:border-dark-border`
           : draftSingleGif
           ? 'mt-2 w-full overflow-hidden border border-light-border dark:border-dark-border'
-          : 'h-[42vw] gap-3 xs:h-[37vw] md:h-[271px]',
-        isTweet && singleMedia && 'max-h-[510px] min-h-[188px]',
-        isTweet &&
+          : !useCarousel
+          ? 'h-[42vw] gap-3 xs:h-[37vw] md:h-[271px]'
+          : '',
+        !useCarousel && isTweet && 'overflow-hidden',
+        !useCarousel && isTweet && singleMedia && 'max-h-[510px] min-h-[188px]',
+        !useCarousel &&
+          isTweet &&
           !singleMedia &&
           (viewTweet
             ? 'aspect-[16/9] max-h-[420px] min-h-[190px]'
             : 'aspect-[16/9] max-h-[285px] min-h-[180px]'),
-        !isTweet && draftSingleGif && 'max-h-[510px] min-h-[188px] gap-0',
-        isTweet && 'gap-0.5'
+        !useCarousel && !isTweet && draftSingleGif && 'max-h-[510px] min-h-[188px] gap-0',
+        !useCarousel && isTweet && 'gap-0.5'
       )}
-      style={tweetMediaStyle}
+      style={useCarousel ? undefined : tweetMediaStyle}
     >
       <Modal
         modalClassName={cn(
@@ -382,9 +392,14 @@ export function ImagePreview({
           const mediaAltText = getMediaAltText(media);
           const showAltTextBadge = !!mediaAltText || !!updateAltText;
           const imageRadius = isTweet
-            ? postImageBorderRadius[visiblePreviewCount][index]
+            ? postImageBorderRadius[visiblePreviewCount][index] ?? 'rounded-2xl'
             : 'rounded-2xl';
-          const shouldCropImage = Boolean(isTweet) || visiblePreviewCount > 1;
+          const shouldCropImage =
+            Boolean(isTweet) || visiblePreviewCount > 1 || useCarousel;
+          const carouselItemWidth = useCarousel
+            ? 'w-[86vw] max-w-[560px] shrink-0 snap-center'
+            : '';
+          const carouselItemAspect = useCarousel ? 'aspect-[16/9]' : '';
           const mediaKey = `${id ?? src}-${index}`;
           const openPreview = handleSelectedImage(index);
           const handlePreviewKeyDown = (
@@ -401,12 +416,16 @@ export function ImagePreview({
             <motion.div
               className={cn(
                 'accent-tab group relative overflow-hidden transition-shadow',
+                carouselItemWidth,
+                carouselItemAspect,
                 imageRadius,
                 {
-                  'col-span-1 row-span-1': visiblePreviewCount === 1,
+                  'col-span-1 row-span-1':
+                    !useCarousel && visiblePreviewCount === 1,
                   'row-span-2':
-                    visiblePreviewCount === 2 ||
-                    (index === 0 && visiblePreviewCount === 3)
+                    !useCarousel &&
+                    (visiblePreviewCount === 2 ||
+                      (index === 0 && visiblePreviewCount === 3))
                 }
               )}
               role={isGif ? undefined : 'button'}

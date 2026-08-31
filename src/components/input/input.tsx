@@ -943,7 +943,7 @@ export function Input({
 
     if (!imagesData) {
       toast.error(
-        'Please choose up to 4 JPG, PNG, or WebP images, or one MP4 video.'
+        'Please choose up to 10 JPG, PNG, or WebP images, or one MP4 video.'
       );
       return;
     }
@@ -958,7 +958,7 @@ export function Input({
         (selectedImages.length > 0 || selectedImagesData.length > 1))
     ) {
       revokeImagePreviews(imagesPreviewData);
-      toast.error('Bluesky allows either one video or up to 4 images.');
+      toast.error('Bluesky allows either one video or up to 10 images.');
       return;
     }
 
