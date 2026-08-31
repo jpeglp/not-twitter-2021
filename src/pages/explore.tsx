@@ -423,7 +423,7 @@ export default function Explore(): JSX.Element {
       ) : (
         <>
           <div className='border-y border-light-border px-4 py-3 dark:border-dark-border'>
-            <h1 className='text-xl font-extrabold'>What's happening</h1>
+            <h1 className='text-xl font-extrabold'>What&apos;s happening</h1>
           </div>
           <AsideTrends inTrendsPage />
           <DiscoverTabs />
