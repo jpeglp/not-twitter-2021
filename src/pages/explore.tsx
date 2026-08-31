@@ -426,8 +426,6 @@ export default function Explore(): JSX.Element {
             <h1 className='text-xl font-extrabold'>What&apos;s happening</h1>
           </div>
           <AsideTrends inTrendsPage />
-          <DiscoverTabs />
-          <DiscoverFeed />
         </>
       )}
     </MainContainer>

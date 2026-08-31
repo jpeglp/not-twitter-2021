@@ -426,9 +426,11 @@ function NotificationAvatarStack({
 }
 
 function GroupedNotificationText({
-  group
+  group,
+  targetHref
 }: {
   group: NotificationGroup;
+  targetHref: string;
 }): JSX.Element {
   const [firstUser, secondUser] = group.users;
   const { action } = getReasonMeta(group.reason);
@@ -436,23 +438,20 @@ function GroupedNotificationText({
 
   if (group.reason === 'subscribed-post')
     return (
-      <p className='mt-2 break-words text-[15px] leading-5'>
-        New Tweet notifications for{' '}
-        <UserName
-          tag='span'
-          name={firstUser.name}
-          username={firstUser.username}
-          verified={firstUser.verified}
-          iconClassName='h-4 w-4'
-          className='inline-flex max-w-[220px] align-bottom'
-          disableUnderline
-        />
-        {othersCount > 0 && (
-          <>
-            {' '}and {othersCount} other{othersCount === 1 ? '' : 's'}
-          </>
-        )}
-      </p>
+      <Link href={targetHref}>
+        <a
+          className='mt-2 block break-words rounded-sm text-[15px] leading-5 outline-none
+                     hover:underline focus-visible:ring-2 focus-visible:ring-main-accent/80'
+        >
+          New Tweet notifications for{' '}
+          <span className='font-bold'>{firstUser.name}</span>
+          {othersCount > 0 && (
+            <>
+              {' '}and {othersCount} other{othersCount === 1 ? '' : 's'}
+            </>
+          )}
+        </a>
+      </Link>
     );
 
   return (
@@ -537,7 +536,7 @@ function ActivityNotificationRow({
             <time>{formatDate(createdAt, 'tweet')}</time>
           </div>
         </div>
-        <GroupedNotificationText group={group} />
+        <GroupedNotificationText group={group} targetHref={targetHref} />
         {group.reason !== 'subscribed-post' && text && (
           <Link href={targetHref}>
             <a

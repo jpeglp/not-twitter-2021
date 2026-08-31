@@ -2057,7 +2057,7 @@ async function fetchAppViewSearchPosts(
 ): Promise<AppViewSearchPostsResponse> {
   await getSafeModerationOpts();
 
-  return callDirectAppQueryXrpc<AppViewSearchPostsResponse>(
+  return callAppQueryXrpc<AppViewSearchPostsResponse>(
     'app.bsky.feed.searchPosts',
     params
   );
