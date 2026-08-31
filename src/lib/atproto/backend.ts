@@ -5184,7 +5184,7 @@ function mapMedia(embed: unknown): ImagesPreview | null {
           aspectRatio
         };
       })
-      .filter((item): item is NonNullable<ImagesPreview[number]> => !!item);
+      .filter((item): item is NonNullable<typeof item> => !!item);
 
     return galleryImages;
   }
