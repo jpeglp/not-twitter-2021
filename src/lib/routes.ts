@@ -1,4 +1,4 @@
-export type NotificationsTab = 'all' | 'mentions';
+export type NotificationsTab = 'all' | 'mentions' | 'tweets';
 
 const BSKY_APP_URL = 'https://bsky.app';
 
@@ -245,6 +245,7 @@ export function getTweetQuotesPath(
 
 export function getNotificationsPath(tab: NotificationsTab = 'all'): string {
   if (tab === 'mentions') return '/notifications/mentions';
+  if (tab === 'tweets') return '/notifications/tweets';
 
   return '/notifications';
 }
@@ -274,6 +275,7 @@ export function getNotificationsTab(path: string): NotificationsTab {
   const pathname = normalizeRoutePath(path);
 
   if (pathname === getNotificationsPath('mentions')) return 'mentions';
+  if (pathname === getNotificationsPath('tweets')) return 'tweets';
 
   return 'all';
 }

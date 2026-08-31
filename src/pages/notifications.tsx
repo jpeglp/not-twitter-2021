@@ -152,6 +152,7 @@ function getNotificationReasonsForTab(
   activeTab: NotificationsTab
 ): NotificationReason[] | undefined {
   if (activeTab === 'mentions') return ['mention', 'reply', 'quote'];
+  if (activeTab === 'tweets') return ['subscribed-post'];
 
   return undefined;
 }
@@ -426,11 +427,9 @@ function NotificationAvatarStack({
 }
 
 function GroupedNotificationText({
-  group,
-  targetHref
+  group
 }: {
   group: NotificationGroup;
-  targetHref: string;
 }): JSX.Element {
   const [firstUser, secondUser] = group.users;
   const { action } = getReasonMeta(group.reason);
@@ -438,20 +437,15 @@ function GroupedNotificationText({
 
   if (group.reason === 'subscribed-post')
     return (
-      <Link href={targetHref}>
-        <a
-          className='mt-2 block break-words rounded-sm text-[15px] leading-5 outline-none
-                     hover:underline focus-visible:ring-2 focus-visible:ring-main-accent/80'
-        >
-          New Tweet notifications for{' '}
-          <span className='font-bold'>{firstUser.name}</span>
-          {othersCount > 0 && (
-            <>
-              {' '}and {othersCount} other{othersCount === 1 ? '' : 's'}
-            </>
-          )}
-        </a>
-      </Link>
+      <p className='mt-2 block break-words text-[15px] leading-5'>
+        New Tweet notifications for{' '}
+        <span className='font-bold'>{firstUser.name}</span>
+        {othersCount > 0 && (
+          <>
+            {' '}and {othersCount} other{othersCount === 1 ? '' : 's'}
+          </>
+        )}
+      </p>
     );
 
   return (
@@ -514,16 +508,46 @@ function ActivityNotificationRow({
   group: NotificationGroup;
   viewerUsername: string | undefined;
 }): JSX.Element {
+  const { push } = useRouter();
   const { latestNotification, reason, text, isRead, createdAt } = group;
   const targetHref = getTargetHref(latestNotification, viewerUsername);
+  const isSubscribedTweetSummary = reason === 'subscribed-post';
+
+  const openSubscribedTweets = (): void => {
+    void push(getNotificationsPath('tweets'));
+  };
 
   return (
     <article
+      aria-label={
+        isSubscribedTweetSummary ? 'Open Tweet notifications' : undefined
+      }
       className={cn(
         `hover-card grid grid-cols-[40px,1fr] gap-4 border-b border-light-border px-4 py-3
          dark:border-dark-border`,
-        !isRead && 'bg-main-accent/[0.07]'
+        !isRead && 'bg-main-accent/[0.07]',
+        isSubscribedTweetSummary &&
+          'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-main-accent/80'
       )}
+      role={isSubscribedTweetSummary ? 'link' : undefined}
+      tabIndex={isSubscribedTweetSummary ? 0 : undefined}
+      onClick={
+        isSubscribedTweetSummary
+          ? (event): void => {
+              event.preventDefault();
+              openSubscribedTweets();
+            }
+          : undefined
+      }
+      onKeyDown={
+        isSubscribedTweetSummary
+          ? (event): void => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              openSubscribedTweets();
+            }
+          : undefined
+      }
     >
       <div className='flex justify-end pt-1'>
         <NotificationReasonIcon reason={reason} />
@@ -536,7 +560,7 @@ function ActivityNotificationRow({
             <time>{formatDate(createdAt, 'tweet')}</time>
           </div>
         </div>
-        <GroupedNotificationText group={group} targetHref={targetHref} />
+        <GroupedNotificationText group={group} />
         {group.reason !== 'subscribed-post' && text && (
           <Link href={targetHref}>
             <a
@@ -1024,14 +1048,17 @@ function TweetNotificationRow({
 
 function NotificationRow({
   group,
+  activeTab,
   viewerUsername,
   viewerId
 }: {
   group: NotificationGroup;
+  activeTab: NotificationsTab;
   viewerUsername: string | undefined;
   viewerId: string | undefined;
 }): JSX.Element {
-  return isTweetNotification(group.reason) ? (
+  return isTweetNotification(group.reason) ||
+    (activeTab === 'tweets' && group.reason === 'subscribed-post') ? (
     <TweetNotificationRow
       group={group}
       viewerId={viewerId}
@@ -1122,24 +1149,51 @@ export default function Notifications(): JSX.Element {
     void handleLoadMore();
   };
   const notificationGroups = useMemo(
-    () => groupNotifications(notifications),
-    [notifications]
+    () =>
+      activeTab === 'tweets'
+        ? notifications.map((notification) =>
+            createNotificationGroup(notification.id, notification)
+          )
+        : groupNotifications(notifications),
+    [activeTab, notifications]
   );
 
   return (
     <MainContainer>
       <SEO
         title={
-          activeTab === 'mentions'
+          activeTab === 'tweets'
+            ? 'Tweet notifications / Not Twitter'
+            : activeTab === 'mentions'
             ? 'Mentions / Not Twitter'
             : 'Notifications / Not Twitter'
         }
       />
       <header className='hover-animation sticky top-0 z-20 bg-main-background/80 backdrop-blur-md'>
         <div className='flex h-[53px] items-center justify-between px-4'>
-          <div className='flex min-w-0 items-center gap-8'>
-            <MobileSidebar />
-            <h2 className='truncate text-xl font-bold'>Notifications</h2>
+          <div className='flex min-w-0 items-center gap-4'>
+            {activeTab === 'tweets' ? (
+              <Link href={getNotificationsPath()}>
+                <a
+                  className='rounded-full p-2 transition hover:bg-light-primary/10
+                             focus-visible:bg-light-primary/10 dark:hover:bg-dark-primary/10
+                             dark:focus-visible:bg-dark-primary/10'
+                  aria-label='Back to notifications'
+                >
+                  <CustomIcon
+                    className='h-5 w-5'
+                    iconName='TwitterArrowLeftIcon'
+                  />
+                </a>
+              </Link>
+            ) : (
+              <MobileSidebar />
+            )}
+            <h2 className='truncate text-xl font-bold'>
+              {activeTab === 'tweets'
+                ? 'Tweet notifications'
+                : 'Notifications'}
+            </h2>
           </div>
           <Button
             className='dark-bg-tab group relative p-2 hover:bg-light-primary/10 active:bg-light-primary/20 
@@ -1150,7 +1204,9 @@ export default function Notifications(): JSX.Element {
             <ToolTip tip='Settings' />
           </Button>
         </div>
-        <NotificationsTabs activeTab={activeTab} />
+        {activeTab !== 'tweets' && (
+          <NotificationsTabs activeTab={activeTab} />
+        )}
       </header>
       <section className='mt-0.5 xs:mt-0'>
         {loading ? (
@@ -1165,6 +1221,7 @@ export default function Notifications(): JSX.Element {
               {notificationGroups.map((group) => (
                 <NotificationRow
                   group={group}
+                  activeTab={activeTab}
                   viewerId={user?.id}
                   viewerUsername={user?.username}
                   key={group.id}
