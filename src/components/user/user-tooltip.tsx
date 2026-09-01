@@ -76,13 +76,13 @@ export function UserTooltip({
   return (
     <div
       className={cn(
-        'group relative self-start text-light-primary dark:text-dark-primary',
+        'group relative z-0 self-start text-light-primary hover:z-[70] focus-within:z-[70] dark:text-dark-primary',
         avatar ? '[&>div]:translate-y-2' : 'grid [&>div]:translate-y-7'
       )}
     >
       {children}
       <div
-        className='menu-container invisible absolute left-1/2 w-72 -translate-x-1/2 rounded-2xl 
+        className='menu-container invisible absolute left-1/2 z-[80] w-72 -translate-x-1/2 rounded-2xl 
                    opacity-0 [transition:visibility_0ms_ease_400ms,opacity_200ms_ease_200ms] group-hover:visible 
                    group-hover:opacity-100 group-hover:delay-500'
       >

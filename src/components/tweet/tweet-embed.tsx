@@ -1352,11 +1352,13 @@ function TweetStandardSiteArticleCard({
   title,
   description,
   articleAuthor,
-  onOpenArticle
+  onOpenArticle,
+  onOpenWebsite
 }: LinkCardProps & {
   title: string;
   description: string | null;
   onOpenArticle: (event: CardEvent) => void;
+  onOpenWebsite: (event: CardEvent) => void;
 }): JSX.Element {
   const { article, loading } = useStandardSiteArticleReader(card);
   const visibleTitle = article?.title ?? title;
@@ -1366,7 +1368,9 @@ function TweetStandardSiteArticleCard({
   return (
     <article
       className={cn(
-        'mt-2 overflow-hidden rounded-[13px] border border-light-border/90 bg-main-background text-left dark:border-dark-border/90',
+        fullArticleReader
+          ? '-mx-4 mt-2 overflow-hidden border-y border-light-border/90 bg-main-background text-left dark:border-dark-border/90'
+          : 'mt-2 overflow-hidden rounded-[13px] border border-light-border/90 bg-main-background text-left dark:border-dark-border/90',
         !fullArticleReader &&
           'cursor-pointer transition-colors hover:bg-light-primary/[0.03] focus-visible:bg-light-primary/[0.03] focus-visible:outline-none dark:hover:bg-dark-primary/[0.03] dark:focus-visible:bg-dark-primary/[0.03]'
       )}
@@ -1377,11 +1381,20 @@ function TweetStandardSiteArticleCard({
       onKeyDown={fullArticleReader ? undefined : onEnterOrSpace(onOpenArticle)}
     >
       <ArticleCover card={card} />
-      <div className='min-w-0 px-3 py-2.5'>
+      <div
+        className={cn(
+          'min-w-0',
+          fullArticleReader
+            ? 'mx-auto max-w-[680px] px-5 py-6 sm:px-8 sm:py-8'
+            : 'px-3 py-2.5'
+        )}
+      >
         <EnhancedLinkCardSourceRow card={card} includeReadingTime={false} />
         <div className='flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
           <h2 className='article-heading-display-font-size min-w-0 flex-1 basis-[240px] font-extrabold text-light-primary dark:text-dark-primary'>
-            <span className='line-clamp-3'>{visibleTitle}</span>
+            <span className={fullArticleReader ? undefined : 'line-clamp-3'}>
+              {visibleTitle}
+            </span>
           </h2>
           {readingTimeLabel && (
             <span className='shrink-0 text-[13px] leading-5 text-light-secondary dark:text-dark-secondary'>
@@ -1390,14 +1403,19 @@ function TweetStandardSiteArticleCard({
           )}
         </div>
         {visibleDescription && (
-          <p className='tweet-display-font-size line-clamp-3 mt-1 text-light-secondary dark:text-dark-secondary'>
+          <p
+            className={cn(
+              'tweet-display-font-size mt-1 text-light-secondary dark:text-dark-secondary',
+              !fullArticleReader && 'line-clamp-3'
+            )}
+          >
             {visibleDescription}
           </p>
         )}
         <button
           className='tweet-display-font-size mt-2 inline-flex items-center gap-1 font-bold text-main-accent outline-none hover:underline focus-visible:underline'
           type='button'
-          onClick={onOpenArticle}
+          onClick={onOpenWebsite}
         >
           Read on website
           <HeroIcon className='h-4 w-4' iconName='ArrowTopRightOnSquareIcon' />
@@ -1500,9 +1518,15 @@ function StandardSiteArticleBody({
     return htmlLoading ? <StandardSiteArticleSkeleton /> : null;
 
   return (
-    <div className='mt-4 border-t border-light-border pt-4 dark:border-dark-border'>
+    <div
+      className={cn(
+        'mt-4',
+        !fullArticleReader &&
+          'border-t border-light-border pt-4 dark:border-dark-border'
+      )}
+    >
       {fullArticleReader ? (
-        <div className='article-display-font-size space-y-3 text-light-primary dark:text-dark-primary'>
+        <div className='article-display-font-size space-y-5 text-light-primary dark:text-dark-primary'>
           {blocks.map((block, index) => (
             <StandardSiteArticleBlockView
               article={article}
@@ -1649,13 +1673,8 @@ function TweetLinkCard({
   const youtubeVideo = getYouTubeVideoInfo(card.url);
   const enhanced = isStandardSiteCard(card);
   const isCompact = compact === true || card.type === 'summary' || !card.image;
-  const openCard = (event: CardEvent): void => {
+  const openWebsite = (event: CardEvent): void => {
     stopOuterTweet(event);
-
-    if (enhanced) {
-      if (articleTweetPath) void router.push(articleTweetPath);
-      return;
-    }
 
     if (card.url.startsWith('/')) {
       void router.push(card.url);
@@ -1663,6 +1682,16 @@ function TweetLinkCard({
     }
 
     window.open(card.url, '_blank', 'noopener,noreferrer');
+  };
+  const openCard = (event: CardEvent): void => {
+    stopOuterTweet(event);
+
+    if (enhanced && articleTweetPath) {
+      void router.push(articleTweetPath);
+      return;
+    }
+
+    openWebsite(event);
   };
 
   if (youtubeVideo && compact !== true)
@@ -1682,6 +1711,7 @@ function TweetLinkCard({
         articleAuthor={articleAuthor}
         articleTweetPath={articleTweetPath}
         onOpenArticle={openCard}
+        onOpenWebsite={openWebsite}
       />
     );
 
@@ -1706,7 +1736,7 @@ function TweetLinkCard({
             <p
               className={cn(
                 'text-[15px] leading-5 text-light-primary dark:text-dark-primary',
-                enhanced ? 'line-clamp-2' : 'truncate'
+                'line-clamp-2'
               )}
             >
               {title}

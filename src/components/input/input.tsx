@@ -191,7 +191,7 @@ function revokeImagePreviews(previews: ImagesPreview): void {
   previews.forEach(({ src }) => revokePreviewUrl(src));
 }
 
-function getTenorGifUri({
+function getGifMediaUri({
   src,
   aspectRatio
 }: Pick<GifSelection, 'src' | 'aspectRatio'>): string {
@@ -217,8 +217,8 @@ function getCardDomain(url: string): string | null {
   }
 }
 
-function createTenorGifCard(gif: GifSelection): TweetCard {
-  const url = getTenorGifUri(gif);
+function createGifCard(gif: GifSelection): TweetCard {
+  const url = getGifMediaUri(gif);
 
   return {
     type: 'external',
@@ -527,9 +527,6 @@ export function Input({
   );
   const [linkedQuoteTweet, setLinkedQuoteTweet] =
     useState<TweetWithUser | null>(null);
-  const [linkedQuoteTweetId, setLinkedQuoteTweetId] = useState<string | null>(
-    null
-  );
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [visited, setVisited] = useState(false);
@@ -576,8 +573,9 @@ export function Input({
     () => (quoteTweet ? null : getBskyPostLinkFromText(inputValue)),
     [inputValue, quoteTweet]
   );
+  const detectedPostLinkTweetId = detectedPostLink?.tweetId ?? null;
   const linkedQuoteIsCurrent =
-    !!linkedQuoteTweet && linkedQuoteTweetId === detectedPostLink?.tweetId;
+    !!linkedQuoteTweet && linkedQuoteTweet.id === detectedPostLinkTweetId;
   const activeQuoteTweet =
     quoteTweet ?? (linkedQuoteIsCurrent ? linkedQuoteTweet : null);
   const submittedText = useMemo(
@@ -667,18 +665,14 @@ export function Input({
   }, [focusSignal]);
 
   useEffect(() => {
-    if (quoteTweet || !detectedPostLink) {
+    if (quoteTweet || !detectedPostLinkTweetId) {
       setLinkedQuoteTweet(null);
-      setLinkedQuoteTweetId(null);
       return;
     }
 
-    if (linkedQuoteTweetId === detectedPostLink.tweetId) return;
-
     let canceled = false;
-    const tweetId = detectedPostLink.tweetId;
+    const tweetId = detectedPostLinkTweetId;
 
-    setLinkedQuoteTweetId(tweetId);
     setLinkedQuoteTweet(null);
 
     void (async (): Promise<void> => {
@@ -702,7 +696,7 @@ export function Input({
     return () => {
       canceled = true;
     };
-  }, [detectedPostLink, linkedQuoteTweetId, quoteTweet]);
+  }, [detectedPostLinkTweetId, quoteTweet]);
 
   const clearCurrentDraft = useCallback((): void => {
     deleteTweetDraft(draftScope);
@@ -1144,7 +1138,7 @@ export function Input({
     }
 
     const gifPreview = {
-      id: `tenor-${id}`,
+      id: `gif-${id}`,
       src,
       alt: title,
       type: 'gif',
@@ -1153,7 +1147,7 @@ export function Input({
     };
 
     setSelectedGifCard(
-      createTenorGifCard({ id, title, src, preview, aspectRatio })
+      createGifCard({ id, title, src, preview, aspectRatio })
     );
     setImagesPreview([gifPreview]);
     setSelectedImages([]);
@@ -1224,7 +1218,24 @@ export function Input({
         deleteDraft={deleteDraft}
       />
       {loading && (
-        <motion.i className='h-1 animate-pulse bg-main-accent' {...variants} />
+        <motion.div
+          className='relative h-0.5 overflow-hidden bg-main-accent/20'
+          role='progressbar'
+          aria-label='Sending Tweet'
+          aria-valuetext='Sending Tweet'
+          {...variants}
+        >
+          <motion.span
+            className='absolute inset-y-0 left-0 w-[38%] bg-main-accent'
+            initial={{ x: '-110%' }}
+            animate={{ x: '290%' }}
+            transition={{
+              duration: 1.05,
+              ease: 'easeInOut',
+              repeat: Infinity
+            }}
+          />
+        </motion.div>
       )}
       {showModalHeader && (
         <header

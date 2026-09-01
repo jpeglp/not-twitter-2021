@@ -1152,7 +1152,7 @@ function ConversationRow({
             </span>
           ) : (
             deliveryStatus && (
-              <span className='ml-auto shrink-0 text-main-accent'>
+              <span className='ml-auto shrink-0'>
                 <DeliveryCheck status={deliveryStatus} />
               </span>
             )
@@ -1350,11 +1350,18 @@ function DeliveryCheck({ status }: DeliveryCheckProps): JSX.Element {
 
   return (
     <span
-      className={cn('inline-flex items-center', read && 'text-main-accent')}
+      aria-label={read ? 'Read' : 'Delivered'}
+      className={cn(
+        'inline-flex h-4 w-4 items-center justify-center',
+        read
+          ? 'text-main-accent'
+          : 'text-light-secondary dark:text-dark-secondary'
+      )}
+      role='img'
       title={read ? 'Read' : 'Delivered'}
     >
       <CustomIcon
-        className={read ? 'h-4 w-4' : 'h-3.5 w-3.5'}
+        className='h-4 w-4'
         iconName={read ? 'TwitterDoubleCheckIcon' : 'TwitterCheckIcon'}
       />
     </span>
