@@ -118,8 +118,8 @@ function ReaderModeThread({
 
   return (
     <>
-      <article className='border-b border-light-border px-4 pt-4 pb-28 dark:border-dark-border'>
-        <header className='mb-6 flex items-center gap-3'>
+      <article className='border-b border-light-border px-5 pb-10 pt-6 dark:border-dark-border'>
+        <header className='mx-auto mb-8 flex max-w-[680px] items-center gap-3 border-b border-light-border pb-5 dark:border-dark-border'>
           <UserAvatar
             src={user.photoURL}
             alt={user.name}
@@ -134,7 +134,7 @@ function ReaderModeThread({
             <UserUsername username={user.username} />
           </div>
         </header>
-        <div className='flex flex-col gap-6'>
+        <div className='mx-auto flex max-w-[680px] flex-col gap-8'>
           {tweets.map((tweet, index) => {
             const displayCard = tweet.card;
             const hasMedia = !!tweet.images?.length;
@@ -142,10 +142,7 @@ function ReaderModeThread({
 
             return (
               <section
-                className={cn(
-                  index > 0 &&
-                    'border-t border-light-border pt-6 dark:border-dark-border'
-                )}
+              className='min-w-0'
                 key={tweet.id}
               >
                 {tweet.text && (
@@ -188,12 +185,10 @@ function ReaderModeThread({
           })}
         </div>
       </article>
-      <div className='fixed inset-x-0 bottom-20 z-20 flex justify-center pointer-events-none'>
+      <div className='mx-auto flex max-w-[680px] justify-center px-4 py-8'>
         <Button
-          className='pointer-events-auto rounded-full bg-main-background px-5 py-3 text-[17px]
-                     font-extrabold shadow-[0_2px_16px_rgba(0,0,0,0.24)]
-                     ring-1 ring-light-border hover:bg-light-primary/5 active:bg-light-primary/10
-                     dark:ring-dark-border dark:hover:bg-dark-primary/10'
+          className='rounded-full border border-main-accent bg-main-background px-5 py-2.5 text-[15px]
+                     font-extrabold text-main-accent hover:bg-main-accent/10 active:bg-main-accent/20'
           onClick={onExit}
         >
           <span className='mr-2 text-xl leading-none'>×</span>
@@ -454,7 +449,9 @@ export default function TweetId(): JSX.Element {
   );
 
   return (
-    <MainContainer className='!pb-[1280px]'>
+    <MainContainer
+      className={readerModeActive ? '!pb-20' : '!pb-[1280px]'}
+    >
       <MainHeader
         useActionButton
         title={hasThread ? 'Thread' : 'Tweet'}

@@ -18,10 +18,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
       - name: Configure GitHub Pages URL
         run: |
@@ -37,7 +37,11 @@ jobs:
             echo "NEXT_PUBLIC_URL=https://${owner_name}.github.io/${repo_name}" >> "$GITHUB_ENV"
           fi
       - run: npm ci
-      - run: npm run export
+      - name: Build static site
+        run: |
+          node scripts/write-atproto-client-metadata.mjs
+          node node_modules/next/dist/bin/next build
+          node node_modules/next/dist/bin/next export
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

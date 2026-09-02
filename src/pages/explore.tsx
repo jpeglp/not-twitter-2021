@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { AnimatePresence, motion } from 'framer-motion';
 import cn from 'clsx';
+import useSWR from 'swr';
 import { useSearchTweets, useSearchUsers } from '@lib/api/search';
+import { getDiscoverHomeFeedPage } from '@lib/atproto/backend';
 import {
   TrendsLayout,
   ProtectedLayout
@@ -20,9 +23,11 @@ import { HeroIcon } from '@components/ui/hero-icon';
 import { Loading } from '@components/ui/loading';
 import { ToolTip } from '@components/ui/tooltip';
 import type {
+  HomeFeedPage,
   SearchPeopleFilter,
   SearchPostFilter
 } from '@lib/atproto/backend';
+import type { TweetWithUser } from '@lib/types/tweet';
 import type { ReactElement, ReactNode } from 'react';
 import type { ParsedUrlQuery } from 'querystring';
 
@@ -40,6 +45,7 @@ const searchTabs: Readonly<SearchTabData[]> = [
   { label: 'Photos', value: 'image' },
   { label: 'Videos', value: 'video' }
 ];
+const DISCOVER_REFRESH_INTERVAL_MS = 60000;
 
 function getRouteParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? '';
@@ -168,6 +174,121 @@ function SearchEmptyState({
         The term you entered did not bring up any results.
       </p>
     </div>
+  );
+}
+
+function mergeDiscoverTweets(
+  currentFeed: TweetWithUser[],
+  nextFeed: TweetWithUser[]
+): TweetWithUser[] {
+  const seenIds = new Set(currentFeed.map(({ id }) => id));
+
+  return [
+    ...currentFeed,
+    ...nextFeed.filter(({ id }) => !seenIds.has(id))
+  ];
+}
+
+function DiscoverTabs(): JSX.Element {
+  return (
+    <nav
+      className='flex h-[53px] border-b border-light-border dark:border-dark-border'
+      aria-label='Explore feeds'
+    >
+      <Link href='/explore' shallow>
+        <a
+          className='accent-tab hover-card relative flex flex-1 items-center justify-center
+                     text-[15px] font-bold text-light-primary outline-none dark:text-dark-primary'
+          aria-current='page'
+        >
+          Discover
+          <i className='absolute bottom-0 h-1 w-14 rounded-full bg-main-accent' />
+        </a>
+      </Link>
+      <Link href='/feeds'>
+        <a
+          className='accent-tab hover-card flex flex-1 items-center justify-center gap-1.5
+                     text-[15px] font-bold text-light-secondary outline-none dark:text-dark-secondary'
+        >
+          <span>Feeds</span>
+          <HeroIcon className='h-4 w-4 text-main-accent' iconName='SparklesIcon' />
+        </a>
+      </Link>
+    </nav>
+  );
+}
+
+function DiscoverFeed(): JSX.Element {
+  const [feed, setFeed] = useState<TweetWithUser[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const { data, error } = useSWR<HomeFeedPage, Error>(
+    'explore-discover-feed',
+    () => getDiscoverHomeFeedPage(),
+    {
+      dedupingInterval: DISCOVER_REFRESH_INTERVAL_MS,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      shouldRetryOnError: false
+    }
+  );
+
+  useEffect(() => {
+    if (!data) return;
+
+    setFeed(data.tweets);
+    setCursor(data.cursor);
+  }, [data]);
+
+  const handleLoadMore = async (): Promise<void> => {
+    if (!cursor || loadingMore) return;
+
+    setLoadingMore(true);
+
+    try {
+      const nextPage = await getDiscoverHomeFeedPage(cursor);
+
+      setCursor(nextPage.cursor);
+      setFeed((currentFeed) =>
+        mergeDiscoverTweets(currentFeed, nextPage.tweets)
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  if (!data && !error) return <Loading className='mt-5' />;
+
+  if (error)
+    return <Error message={error.message || 'Something went wrong'} />;
+
+  if (!feed.length)
+    return (
+      <p className='border-b border-light-border px-4 py-8 text-center text-light-secondary
+                    dark:border-dark-border dark:text-dark-secondary'>
+        No posts found in Discover.
+      </p>
+    );
+
+  return (
+    <section className='mt-0.5 xs:mt-0'>
+      <AnimatePresence>
+        {feed.map((tweet) => (
+          <Tweet {...tweet} key={tweet.id} />
+        ))}
+      </AnimatePresence>
+      {cursor && (
+        <motion.div
+          className='border-b border-light-border dark:border-dark-border'
+          viewport={{ margin: '0px 0px 1000px' }}
+          onViewportEnter={(): void => {
+            void handleLoadMore();
+          }}
+        >
+          <Loading className='mt-5' />
+        </motion.div>
+      )}
+    </section>
   );
 }
 

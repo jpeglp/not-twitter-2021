@@ -1,5 +1,4 @@
 import useSWR from 'swr';
-import { useAuth } from '@lib/context/auth-context';
 import { getTrendCategory } from '@lib/trend-categories';
 import type { SWRConfiguration } from 'swr';
 import type {
@@ -13,11 +12,12 @@ type BskyTrendingTopic = {
   displayName?: string;
   description?: string;
   link: string;
+  category?: string;
+  postCount?: number;
 };
 
 type BskyTrendingTopicsResponse = {
-  topics?: BskyTrendingTopic[];
-  suggested?: BskyTrendingTopic[];
+  trends?: BskyTrendingTopic[];
 };
 
 type SwrHooksReturn = {
@@ -38,7 +38,7 @@ type FilteredUseTrendsReturn = SwrHooksReturn & {
 };
 
 const BSKY_TRENDS_ENDPOINT =
-  'https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrendingTopics';
+  'https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrends';
 const MAX_TRENDS_LIMIT = 25;
 
 function clampLimit(limit?: number): number {
@@ -54,6 +54,15 @@ function toInternalBskyPath(link: string): string {
   return `/${link}`;
 }
 
+function formatTrendCategory(category?: string): string | undefined {
+  const normalizedCategory = category?.trim();
+  if (!normalizedCategory) return undefined;
+
+  return normalizedCategory.replace(/\b[a-z]/g, (character) =>
+    character.toUpperCase()
+  );
+}
+
 function mapTopic(
   topic: BskyTrendingTopic,
   kind: Trend['kind'],
@@ -66,7 +75,10 @@ function mapTopic(
     query: topic.topic,
     displayName: topic.displayName ?? topic.topic,
     description: topic.description ?? null,
-    category: kind === 'topic' ? getTrendCategory(topic) : 'Feeds',
+    category:
+      kind === 'topic'
+        ? formatTrendCategory(topic.category) ?? getTrendCategory(topic)
+        : 'Feeds',
     promoted_content: null,
     tweet_volume: null,
     url: toInternalBskyPath(topic.link)
@@ -81,14 +93,9 @@ async function fetchBlueskyTrends(url: string): Promise<SuccessResponse> {
 
   const data = (await response.json()) as BskyTrendingTopicsResponse;
   const limit = clampLimit(Number(new URL(url).searchParams.get('limit')));
-  const topics = data.topics ?? [];
-  const suggested = data.suggested ?? [];
-  const trends = [
-    ...topics.map((topic, index) => mapTopic(topic, 'topic', index + 1)),
-    ...suggested.map((topic, index) =>
-      mapTopic(topic, 'suggested', topics.length + index + 1)
-    )
-  ].slice(0, limit);
+  const trends = (data.trends ?? [])
+    .map((topic, index) => mapTopic(topic, 'topic', index + 1))
+    .slice(0, limit);
 
   return { trends, location: 'Bluesky' };
 }
@@ -110,13 +117,11 @@ export function useTrends(
   limit?: number,
   config?: SWRConfiguration
 ): UseTrendsReturn | FilteredUseTrendsReturn {
-  const { user } = useAuth();
   const params = new URLSearchParams();
 
   void id;
 
   params.set('limit', String(clampLimit(limit)));
-  if (user?.id) params.set('viewer', user.id);
 
   const { data, error } = useSWR<SuccessResponse, Error>(
     `${BSKY_TRENDS_ENDPOINT}?${params.toString()}`,

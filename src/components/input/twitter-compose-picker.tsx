@@ -30,26 +30,26 @@ type TwitterComposePickerProps = {
   onSelectGif: (gif: GifSelection) => void;
 };
 
-type TenorGif = {
+type KlipyMediaFormat = {
+  url: string;
+  preview?: string;
+  dims?: [number, number];
+};
+
+type KlipyGif = {
   id: string;
   title?: string;
   content_description?: string;
-  media: {
-    tinygif?: {
-      url: string;
-      preview: string;
-      dims?: [number, number];
-    };
-    gif?: {
-      url: string;
-      preview: string;
-      dims?: [number, number];
-    };
-  }[];
+  media_formats?: {
+    gif?: KlipyMediaFormat;
+    tinygif?: KlipyMediaFormat;
+    mp4?: KlipyMediaFormat;
+    tinymp4?: KlipyMediaFormat;
+  };
 };
 
-type TenorResponse = {
-  results: TenorGif[];
+type KlipyResponse = {
+  results?: KlipyGif[];
 };
 
 type EmojiItem = {
@@ -86,7 +86,7 @@ const emojiPickerWidth = 350;
 const emojiPickerHeight = 520;
 const pickerOffset = 12;
 
-const tenorApiKey = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA';
+const klipySearchEndpoint = 'https://gifs.bsky.app/klipy/v2/search';
 const recentEmojisKey = 'not-twitter:recent-emojis';
 
 const skinToneOptions = [
@@ -440,19 +440,21 @@ function Twemoji({
   );
 }
 
-function mapTenorGif(gif: TenorGif): GifSelection | null {
-  const media = gif.media[0];
-  const gifMedia = media?.gif ?? media?.tinygif;
+function mapKlipyGif(gif: KlipyGif): GifSelection | null {
+  const gifMedia = gif.media_formats?.gif ?? gif.media_formats?.tinygif;
+  const previewMedia = gif.media_formats?.tinygif ?? gifMedia;
 
-  if (!gifMedia) return null;
+  if (!gifMedia || !previewMedia) return null;
+
+  const dimensions = gifMedia.dims ?? previewMedia.dims;
 
   return {
     id: gif.id,
-    title: gif.content_description ?? gif.title ?? 'GIF',
+    title: gif.content_description?.trim() || gif.title?.trim() || 'GIF',
     src: gifMedia.url,
-    preview: gifMedia.preview,
-    aspectRatio: gifMedia.dims
-      ? { width: gifMedia.dims[0], height: gifMedia.dims[1] }
+    preview: previewMedia.url || gifMedia.preview || gifMedia.url,
+    aspectRatio: dimensions
+      ? { width: dimensions[0], height: dimensions[1] }
       : null
   };
 }
@@ -487,21 +489,20 @@ function GifPicker({
       category: FoundMediaCategory
     ): Promise<FoundMediaCategoryTile> => {
       const params = new URLSearchParams({
-        key: tenorApiKey,
         q: category.searchTerm,
         limit: '1',
-        media_filter: 'minimal'
+        media_filter: 'gif,tinygif,mp4,tinymp4',
+        contentfilter: 'high'
       }).toString();
 
       try {
-        const response = await fetch(
-          `https://g.tenor.com/v1/search?${params}`,
-          {
-            signal: controller.signal
-          }
-        );
-        const { results } = (await response.json()) as TenorResponse;
-        const gif = results.map(mapTenorGif).find(Boolean);
+        const response = await fetch(`${klipySearchEndpoint}?${params}`, {
+          signal: controller.signal
+        });
+        if (!response.ok)
+          throw new Error(`KLIPY request failed: ${response.status}`);
+        const { results = [] } = (await response.json()) as KlipyResponse;
+        const gif = results.map(mapKlipyGif).find(Boolean);
 
         return { ...category, image: gif?.src ?? gif?.preview ?? null };
       } catch {
@@ -529,19 +530,23 @@ function GifPicker({
     setLoading(true);
 
     const params = new URLSearchParams({
-      key: tenorApiKey,
       q: searchQuery,
       limit: '45',
-      media_filter: 'minimal'
+      media_filter: 'gif,tinygif,mp4,tinymp4',
+      contentfilter: 'high'
     }).toString();
 
-    void fetch(`https://g.tenor.com/v1/search?${params}`, {
+    void fetch(`${klipySearchEndpoint}?${params}`, {
       signal: controller.signal
     })
-      .then((response) => response.json() as Promise<TenorResponse>)
-      .then(({ results }) => {
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(`KLIPY request failed: ${response.status}`);
+        return response.json() as Promise<KlipyResponse>;
+      })
+      .then(({ results = [] }) => {
         setResults(
-          results.map(mapTenorGif).filter((gif): gif is GifSelection => !!gif)
+          results.map(mapKlipyGif).filter((gif): gif is GifSelection => !!gif)
         );
       })
       .catch(() => {

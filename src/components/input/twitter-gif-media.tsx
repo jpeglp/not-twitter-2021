@@ -66,7 +66,6 @@ export function TwitterGifMedia({
       role='button'
       tabIndex={0}
       aria-label={label}
-      data-testid='playButton'
       onClick={preventBubbling(togglePlayback)}
       onKeyDown={(event): void => {
         if (event.key === 'Enter' || event.key === ' ') {

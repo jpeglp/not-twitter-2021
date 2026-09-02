@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import useSWR from 'swr';
@@ -10,6 +17,7 @@ import {
   addChatReaction,
   blockChatParticipant,
   getChatConvoForActor,
+  getChatConvoForMembers,
   getChatMessages,
   isChatAccessError,
   leaveChatConvo,
@@ -43,6 +51,7 @@ import { ProtectedLayout } from '@components/layout/common-layout';
 import { MainLayout } from '@components/layout/main-layout';
 import { SEO } from '@components/common/seo';
 import { MainContainer } from '@components/home/main-container';
+import { TwitterComposePicker } from '@components/input/twitter-compose-picker';
 import { Modal } from '@components/modal/modal';
 import { ActionModal } from '@components/modal/action-modal';
 import { NextImage } from '@components/ui/next-image';
@@ -55,6 +64,7 @@ import type {
   FormEvent,
   KeyboardEvent,
   MouseEvent,
+  CSSProperties,
   ReactElement,
   ReactNode,
   UIEvent
@@ -68,7 +78,33 @@ function getRouteParam(value: string | string[] | undefined): string | null {
   return null;
 }
 
+function isGroupConvo(convo: ChatConvo): boolean {
+  const hasMultipleMembers =
+    typeof convo.memberCount === 'number'
+      ? convo.memberCount > 1
+      : convo.members.length > 1;
+
+  return (
+    convo.kind === 'group' ||
+    !!convo.groupName ||
+    hasMultipleMembers
+  );
+}
+
+function getConvoMemberCount(convo: ChatConvo): number {
+  if (typeof convo.memberCount === 'number') return convo.memberCount;
+
+  return convo.kind === 'group' ? convo.members.length + 1 : convo.members.length;
+}
+
+function getConvoMembersLabel(convo: ChatConvo): string {
+  const memberCount = getConvoMemberCount(convo);
+
+  return `${memberCount} ${memberCount === 1 ? 'person' : 'people'}`;
+}
+
 function getConvoTitle(convo: ChatConvo): string {
+  if (isGroupConvo(convo) && convo.groupName) return convo.groupName;
   if (!convo.members.length) return 'Conversation';
   return convo.members.map(({ name }) => name).join(', ');
 }
@@ -78,11 +114,37 @@ function getConvoHandle(
   hideBskySocialSuffix = false
 ): string {
   if (!convo.members.length) return '';
+  if (isGroupConvo(convo)) return getConvoMembersLabel(convo);
+
   return convo.members
     .map((member) =>
       formatAtprotoDisplayIdentifier(member.username, { hideBskySocialSuffix })
     )
     .join(', ');
+}
+
+function getConvoSearchText(
+  convo: ChatConvo,
+  hideBskySocialSuffix = false
+): string {
+  return [
+    getConvoTitle(convo),
+    getConvoHandle(convo, hideBskySocialSuffix),
+    ...convo.members.flatMap((member) => [
+      member.name,
+      formatAtprotoDisplayIdentifier(member.username, {
+        hideBskySocialSuffix
+      }),
+      member.username
+    ])
+  ].join(' ');
+}
+
+function getComposeGroupName(users: User[]): string {
+  return users
+    .map(({ name }) => name)
+    .join(', ')
+    .slice(0, 50);
 }
 
 function getMessagePreview(message: ChatMessage | null): string {
@@ -334,6 +396,7 @@ type MessageAvatarProps = {
   size?: number;
   className?: string;
   username?: string;
+  style?: CSSProperties;
 };
 
 function MessageAvatar({
@@ -341,7 +404,8 @@ function MessageAvatar({
   alt,
   size = 40,
   className,
-  username
+  username,
+  style
 }: MessageAvatarProps): JSX.Element {
   const avatar = (
     <figure
@@ -349,7 +413,7 @@ function MessageAvatar({
         'profile-picture flex shrink-0 items-center justify-center overflow-hidden bg-main-sidebar-background',
         !username && className
       )}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, ...style }}
     >
       {src ? (
         <NextImage
@@ -388,6 +452,86 @@ function MessageAvatar({
   );
 }
 
+type ConversationAvatarProps = {
+  convo: ChatConvo;
+  size?: number;
+  className?: string;
+};
+
+function ConversationAvatar({
+  convo,
+  size = 48,
+  className
+}: ConversationAvatarProps): JSX.Element {
+  const group = isGroupConvo(convo);
+  const participant = convo.members[0];
+
+  if (!group)
+    return (
+      <MessageAvatar
+        className={className}
+        src={participant?.photoURL}
+        alt={participant?.name ?? 'Conversation'}
+        size={size}
+        username={participant?.username}
+      />
+    );
+
+  const visibleMembers = convo.members.slice(0, 2);
+  const avatarSegments =
+    visibleMembers.length === 1
+      ? [visibleMembers[0], null]
+      : visibleMembers;
+  const segmentWidth = Math.ceil(size / 2);
+
+  return (
+    <div
+      className={cn(
+        `profile-picture flex shrink-0 overflow-hidden bg-main-sidebar-background
+         text-main-accent`,
+        className
+      )}
+      style={{ width: size, height: size }}
+      aria-label={`${getConvoTitle(convo)} group conversation`}
+      title={getConvoTitle(convo)}
+    >
+      {avatarSegments.length ? (
+        avatarSegments.map((member, index) => (
+          <span
+            className='flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden
+                       bg-main-sidebar-background'
+            key={member?.id ?? `group-avatar-fallback-${index}`}
+          >
+            {member?.photoURL ? (
+              <NextImage
+                useSkeleton
+                className='h-full w-full'
+                imgClassName='!h-full !w-full !rounded-none object-cover'
+                width={segmentWidth}
+                height={size}
+                src={member.photoURL}
+                alt={member.name}
+              />
+            ) : (
+              <CustomIcon
+                className='h-1/2 w-1/2 text-light-secondary dark:text-dark-secondary'
+                iconName='TwitterProfileIcon'
+              />
+            )}
+          </span>
+        ))
+      ) : (
+        <span className='flex h-full w-full items-center justify-center'>
+          <CustomIcon
+            className='h-1/2 w-1/2'
+            iconName='TwitterPeopleGroupIcon'
+          />
+        </span>
+      )}
+    </div>
+  );
+}
+
 type NewMessageUserRowProps = {
   user: User;
   selected: boolean;
@@ -421,12 +565,7 @@ function NewMessageUserRow({
       }
     >
       <span className='flex min-w-0 items-center gap-3'>
-        <MessageAvatar
-          src={user.photoURL}
-          alt={user.name}
-          size={48}
-          username={user.username}
-        />
+        <MessageAvatar src={user.photoURL} alt={user.name} size={48} />
         <span className='min-w-0'>
           <span className='flex min-w-0 items-center gap-1'>
             <span className='truncate font-bold'>{user.name}</span>
@@ -455,19 +594,19 @@ function NewMessageUserRow({
 type NewMessageModalProps = {
   currentUserId: string | undefined;
   searchValue: string;
-  selectedUser: User | null;
+  selectedUsers: User[];
   starting: boolean;
   onClose: () => void;
   onSearchChange: (value: string) => void;
   onSelectUser: (user: User) => void;
-  onRemoveSelectedUser: () => void;
+  onRemoveSelectedUser: (userId: string) => void;
   onStart: () => void;
 };
 
 function NewMessageModal({
   currentUserId,
   searchValue,
-  selectedUser,
+  selectedUsers,
   starting,
   onClose,
   onSearchChange,
@@ -483,10 +622,15 @@ function NewMessageModal({
   );
   const users =
     data?.users.filter(({ id }) => id !== currentUserId).slice(0, 12) ?? [];
+  const selectedUserIds = useMemo(
+    () => new Set(selectedUsers.map(({ id }) => id)),
+    [selectedUsers]
+  );
+  const hasSelectedUsers = selectedUsers.length > 0;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (selectedUser) onStart();
+    if (hasSelectedUsers) onStart();
   };
 
   const handleKeyboardShortcut = (
@@ -495,7 +639,7 @@ function NewMessageModal({
     if (!isSubmitShortcut(event)) return;
 
     event.preventDefault();
-    if (selectedUser && !starting) onStart();
+    if (hasSelectedUsers && !starting) onStart();
   };
 
   const handleSearchChange = ({
@@ -523,7 +667,7 @@ function NewMessageModal({
         <Button
           className='accent-tab accent-bg-tab rounded-full bg-main-accent px-4 py-1.5
                      text-[15px] font-bold text-white disabled:opacity-50'
-          disabled={!selectedUser}
+          disabled={!hasSelectedUsers}
           loading={starting}
           type='submit'
         >
@@ -535,31 +679,34 @@ function NewMessageModal({
         <span className='text-[15px] text-light-primary dark:text-dark-primary'>
           To:
         </span>
-        {selectedUser && (
-          <span className='flex min-w-0 max-w-full items-center gap-2 rounded-full border border-main-accent bg-main-accent/10 py-1 pl-2 pr-1 text-main-accent'>
+        {selectedUsers.map((selectedUser) => (
+          <span
+            className='flex min-w-0 max-w-full items-center gap-2 rounded-full border border-main-accent
+                       bg-main-accent/10 py-1 pl-2 pr-1 text-main-accent'
+            key={selectedUser.id}
+          >
             <MessageAvatar
               src={selectedUser.photoURL}
               alt={selectedUser.name}
               size={24}
-              username={selectedUser.username}
             />
-            <span className='truncate text-[15px] font-bold'>
+            <span className='max-w-[150px] truncate text-[15px] font-bold'>
               {selectedUser.name}
             </span>
             <Button
               className='flex h-6 w-6 items-center justify-center rounded-full p-0 hover:bg-main-accent/10'
-              onClick={onRemoveSelectedUser}
+              onClick={(): void => onRemoveSelectedUser(selectedUser.id)}
               title='Remove'
             >
               <CustomIcon className='h-3.5 w-3.5' iconName='TwitterCloseIcon' />
             </Button>
           </span>
-        )}
+        ))}
         <input
           className='min-w-[180px] flex-1 bg-transparent text-[15px] outline-none
                      placeholder:text-light-secondary dark:placeholder:text-dark-secondary'
           autoFocus
-          placeholder={selectedUser ? '' : 'Search people'}
+          placeholder={hasSelectedUsers ? '' : 'Search people'}
           value={searchValue}
           onChange={handleSearchChange}
         />
@@ -581,7 +728,7 @@ function NewMessageModal({
             <h3 className='px-4 pt-4 pb-2 text-[15px] font-bold'>People</h3>
             {users.map((user) => (
               <NewMessageUserRow
-                selected={selectedUser?.id === user.id}
+                selected={selectedUserIds.has(user.id)}
                 user={user}
                 onSelect={onSelectUser}
                 key={user.id}
@@ -604,8 +751,6 @@ type NewMessageToastProps = {
 };
 
 function NewMessageToast({ convo, onOpen }: NewMessageToastProps): JSX.Element {
-  const participant = convo.members[0];
-
   return (
     <div
       className='main-tab flex max-w-sm cursor-pointer items-center gap-3 rounded-2xl border border-light-border
@@ -615,16 +760,11 @@ function NewMessageToast({ convo, onOpen }: NewMessageToastProps): JSX.Element {
       onClick={(event): void => openFromClickableRow(event, onOpen)}
       onKeyDown={(event): void => openFromClickableRowKey(event, onOpen)}
     >
-      <MessageAvatar
-        src={participant?.photoURL}
-        alt={participant?.name ?? 'Conversation'}
-        size={40}
-        username={participant?.username}
-      />
+      <ConversationAvatar convo={convo} size={40} />
       <div className='min-w-0'>
         <div className='flex min-w-0 items-center gap-1'>
           <p className='truncate font-bold'>{getConvoTitle(convo)}</p>
-          {participant?.verified && (
+          {!isGroupConvo(convo) && convo.members[0]?.verified && (
             <CustomIcon
               className='h-4 w-4 shrink-0'
               iconName='TwitterVerifiedIcon'
@@ -752,6 +892,7 @@ function MessageRequestsPanel({
             {requests.map((convo) => {
               const participant = convo.members[0];
               const processing = processingRequestId === convo.id;
+              const group = isGroupConvo(convo);
 
               return (
                 <div
@@ -759,18 +900,13 @@ function MessageRequestsPanel({
                   key={convo.id}
                 >
                   <div className='flex w-full items-start gap-3 text-left'>
-                    <MessageAvatar
-                      src={participant?.photoURL}
-                      alt={participant?.name ?? 'Conversation'}
-                      size={48}
-                      username={participant?.username}
-                    />
+                    <ConversationAvatar convo={convo} size={48} />
                     <div className='min-w-0 flex-1'>
                       <div className='flex min-w-0 items-center gap-1'>
                         <p className='truncate font-bold'>
                           {getConvoTitle(convo)}
                         </p>
-                        {participant?.verified && (
+                        {!group && participant?.verified && (
                           <CustomIcon
                             className='h-4 w-4 shrink-0'
                             iconName='TwitterVerifiedIcon'
@@ -947,6 +1083,7 @@ function ConversationRow({
 }: ConversationRowProps): JSX.Element {
   const { hideBskySocialSuffix } = useTheme();
   const participant = convo.members[0];
+  const group = isGroupConvo(convo);
   const preview = getMessagePreview(convo.lastMessage);
   const participantUsername = formatAtprotoDisplayIdentifier(
     participant?.username,
@@ -971,24 +1108,24 @@ function ConversationRow({
       onClick={(event): void => openFromClickableRow(event, onClick)}
       onKeyDown={(event): void => openFromClickableRowKey(event, onClick)}
     >
-      <MessageAvatar
-        src={participant?.photoURL}
-        alt={participant?.name ?? 'Conversation'}
-        size={48}
-        username={participant?.username}
-      />
+      <ConversationAvatar convo={convo} size={48} />
       <div className='min-w-0 flex-1'>
         <div className='flex min-w-0 items-center gap-1'>
           <p className='truncate font-bold'>{getConvoTitle(convo)}</p>
-          {participant?.verified && (
+          {!group && participant?.verified && (
             <CustomIcon
               className='h-4 w-4 shrink-0'
               iconName='TwitterVerifiedIcon'
             />
           )}
-          {participant && (
+          {participant && !group && (
             <p className='min-w-0 truncate text-light-secondary dark:text-dark-secondary'>
               {participantUsername}
+            </p>
+          )}
+          {group && (
+            <p className='min-w-0 truncate text-light-secondary dark:text-dark-secondary'>
+              {getConvoMembersLabel(convo)}
             </p>
           )}
           {convo.lastMessage && (
@@ -1015,7 +1152,7 @@ function ConversationRow({
             </span>
           ) : (
             deliveryStatus && (
-              <span className='ml-auto shrink-0 text-main-accent'>
+              <span className='ml-auto shrink-0'>
                 <DeliveryCheck status={deliveryStatus} />
               </span>
             )
@@ -1117,6 +1254,7 @@ function ConversationInfo({
   onDeleteConversation
 }: ConversationInfoProps): JSX.Element {
   const { hideBskySocialSuffix } = useTheme();
+  const group = isGroupConvo(convo);
   const firstMember = convo.members[0];
   const firstHandle = formatAtprotoDisplayIdentifier(firstMember?.username, {
     hideBskySocialSuffix
@@ -1177,7 +1315,7 @@ function ConversationInfo({
       </InfoSection>
 
       <InfoSection title='Privacy & support'>
-        {firstMember && (
+        {firstMember && !group && (
           <>
             <InfoRow
               destructive
@@ -1196,7 +1334,7 @@ function ConversationInfo({
           </>
         )}
         <InfoRow destructive onClick={onDeleteConversation}>
-          <span>Delete conversation</span>
+          <span>{group ? 'Leave conversation' : 'Delete conversation'}</span>
         </InfoRow>
       </InfoSection>
     </div>
@@ -1212,11 +1350,18 @@ function DeliveryCheck({ status }: DeliveryCheckProps): JSX.Element {
 
   return (
     <span
-      className={cn('inline-flex items-center', read && 'text-main-accent')}
+      aria-label={read ? 'Read' : 'Delivered'}
+      className={cn(
+        'inline-flex h-4 w-4 items-center justify-center',
+        read
+          ? 'text-main-accent'
+          : 'text-light-secondary dark:text-dark-secondary'
+      )}
+      role='img'
       title={read ? 'Read' : 'Delivered'}
     >
       <CustomIcon
-        className={read ? 'h-4 w-4' : 'h-3.5 w-3.5'}
+        className='h-4 w-4'
         iconName={read ? 'TwitterDoubleCheckIcon' : 'TwitterCheckIcon'}
       />
     </span>
@@ -1326,12 +1471,11 @@ export default function Messages(): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageCursor, setMessageCursor] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [composeSearchValue, setComposeSearchValue] = useState('');
-  const [selectedComposeUser, setSelectedComposeUser] = useState<User | null>(
-    null
-  );
+  const [selectedComposeUsers, setSelectedComposeUsers] = useState<User[]>([]);
   const [loadingConvos, setLoadingConvos] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
@@ -1370,6 +1514,12 @@ export default function Messages(): JSX.Element {
   const initializedConvosRef = useRef(false);
   const activeConvoIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const emojiPickerAnchorRef = useRef<HTMLSpanElement>(null);
+  const olderMessagesScrollAnchorRef = useRef<{
+    scrollHeight: number;
+    scrollTop: number;
+  } | null>(null);
   const skipNextMessageScrollRef = useRef(false);
   const {
     open: deleteConversationOpen,
@@ -1431,6 +1581,8 @@ export default function Messages(): JSX.Element {
 
   useEffect(() => {
     activeConvoIdRef.current = activeConvoId;
+    olderMessagesScrollAnchorRef.current = null;
+    setEmojiPickerOpen(false);
   }, [activeConvoId]);
 
   const activeConvo = useMemo(
@@ -1443,7 +1595,7 @@ export default function Messages(): JSX.Element {
     if (!normalizedSearch) return convos;
 
     return convos.filter((convo) =>
-      `${getConvoTitle(convo)} ${getConvoHandle(convo, hideBskySocialSuffix)}`
+      getConvoSearchText(convo, hideBskySocialSuffix)
         .toLowerCase()
         .includes(normalizedSearch)
     );
@@ -1465,6 +1617,17 @@ export default function Messages(): JSX.Element {
     }
     messagesEndRef.current?.scrollIntoView({ block: 'end' });
   }, [activeConvoId, loadingMessages, loadingMoreMessages, messages.length]);
+
+  useLayoutEffect(() => {
+    const anchor = olderMessagesScrollAnchorRef.current;
+    const scrollContainer = messagesScrollRef.current;
+    if (!anchor || !scrollContainer || loadingMoreMessages) return;
+
+    scrollContainer.scrollTop =
+      anchor.scrollTop +
+      (scrollContainer.scrollHeight - anchor.scrollHeight);
+    olderMessagesScrollAnchorRef.current = null;
+  }, [loadingMoreMessages, messages.length]);
 
   const getMessagePage = useCallback(
     (convoId: string, cursor?: string | null): Promise<ChatMessagesPage> => {
@@ -1753,6 +1916,13 @@ export default function Messages(): JSX.Element {
     if (!activeConvoId || !messageCursor) return;
     const convoId = activeConvoId;
 
+    const scrollContainer = messagesScrollRef.current;
+    if (scrollContainer)
+      olderMessagesScrollAnchorRef.current = {
+        scrollHeight: scrollContainer.scrollHeight,
+        scrollTop: scrollContainer.scrollTop
+      };
+
     skipNextMessageScrollRef.current = true;
     setLoadingMoreMessages(true);
 
@@ -2005,29 +2175,42 @@ export default function Messages(): JSX.Element {
 
     setNewMessageOpen(false);
     setComposeSearchValue('');
-    setSelectedComposeUser(null);
+    setSelectedComposeUsers([]);
   };
 
   const selectComposeUser = (user: User): void => {
-    setSelectedComposeUser(user);
+    setSelectedComposeUsers((currentUsers) =>
+      currentUsers.some(({ id }) => id === user.id)
+        ? currentUsers.filter(({ id }) => id !== user.id)
+        : [...currentUsers, user]
+    );
     setComposeSearchValue('');
   };
 
-  const removeSelectedComposeUser = (): void => setSelectedComposeUser(null);
+  const removeSelectedComposeUser = (userId: string): void => {
+    setSelectedComposeUsers((currentUsers) =>
+      currentUsers.filter(({ id }) => id !== userId)
+    );
+  };
 
   const startSelectedConversation = async (): Promise<void> => {
-    if (!selectedComposeUser) return;
+    if (!selectedComposeUsers.length) return;
 
     setStartingConversation(true);
     setActiveError(null);
 
     try {
-      const convo = await getChatConvoForActor(selectedComposeUser.username);
+      const convo = await getChatConvoForMembers(
+        selectedComposeUsers.map(({ id }) => id),
+        selectedComposeUsers.length > 1
+          ? getComposeGroupName(selectedComposeUsers)
+          : undefined
+      );
 
       openConversationShell(convo);
       setNewMessageOpen(false);
       setComposeSearchValue('');
-      setSelectedComposeUser(null);
+      setSelectedComposeUsers([]);
       if (convo.lastMessage) await loadThread(convo.id);
       void mutate();
     } catch (error) {
@@ -2163,6 +2346,7 @@ export default function Messages(): JSX.Element {
 
   const handleDeleteConversation = async (): Promise<void> => {
     if (!activeConvoId) return;
+    const group = !!activeConvo && isGroupConvo(activeConvo);
 
     setLeavingConvo(true);
 
@@ -2173,7 +2357,7 @@ export default function Messages(): JSX.Element {
       );
       closeDeleteConversationModal();
       closeThread();
-      toast.success('Conversation deleted');
+      toast.success(group ? 'Conversation left' : 'Conversation deleted');
       void mutate();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -2225,6 +2409,7 @@ export default function Messages(): JSX.Element {
   };
 
   const showThread = !!activeConvoId;
+  const activeConvoGroup = !!activeConvo && isGroupConvo(activeConvo);
   const firstMember = activeConvo?.members[0];
   const firstMemberDisplayUsername = formatAtprotoDisplayIdentifier(
     firstMember?.username,
@@ -2241,7 +2426,7 @@ export default function Messages(): JSX.Element {
         <NewMessageModal
           currentUserId={user?.id}
           searchValue={composeSearchValue}
-          selectedUser={selectedComposeUser}
+          selectedUsers={selectedComposeUsers}
           starting={startingConversation}
           onClose={closeNewMessageModal}
           onRemoveSelectedUser={removeSelectedComposeUser}
@@ -2256,10 +2441,24 @@ export default function Messages(): JSX.Element {
         closeModal={closeDeleteConversationModal}
       >
         <ActionModal
-          title='Delete conversation?'
-          description='This conversation will be deleted from your inbox. Other people in the conversation will still be able to see it.'
+          title={
+            activeConvoGroup ? 'Leave conversation?' : 'Delete conversation?'
+          }
+          description={
+            activeConvoGroup
+              ? 'You will leave this conversation. Other people in the conversation will still be able to see it.'
+              : 'This conversation will be deleted from your inbox. Other people in the conversation will still be able to see it.'
+          }
           mainBtnClassName='accent-tab bg-accent-red hover:bg-accent-red/90 focus-visible:bg-accent-red/90 active:bg-accent-red/75'
-          mainBtnLabel={leavingConvo ? 'Deleting...' : 'Delete'}
+          mainBtnLabel={
+            leavingConvo
+              ? activeConvoGroup
+                ? 'Leaving...'
+                : 'Deleting...'
+              : activeConvoGroup
+              ? 'Leave'
+              : 'Delete'
+          }
           action={handleDeleteConversationClick}
           closeModal={closeDeleteConversationModal}
         />
@@ -2358,17 +2557,7 @@ export default function Messages(): JSX.Element {
                           key={convo.id}
                         />
                       ))}
-                      {convoCursor && (
-                        <div className='border-b border-light-border px-4 py-3 text-center dark:border-dark-border'>
-                          <Button
-                            className='accent-tab accent-bg-tab px-4 py-2 font-bold text-white'
-                            loading={loadingConvos}
-                            onClick={loadMoreConvos}
-                          >
-                            Show more
-                          </Button>
-                        </div>
-                      )}
+                        {loadingConvos && <Loading className='my-3' />}
                     </>
                   ) : (
                     <div className='mx-auto flex max-w-xs flex-col gap-2 px-8 py-16'>
@@ -2439,12 +2628,15 @@ export default function Messages(): JSX.Element {
                           iconName='TwitterArrowLeftIcon'
                         />
                       </Button>
+                      {activeConvoGroup && (
+                        <ConversationAvatar convo={activeConvo} size={40} />
+                      )}
                       <div className='min-w-0'>
                         <div className='flex min-w-0 items-center gap-1'>
                           <p className='truncate text-xl font-extrabold'>
                             {getConvoTitle(activeConvo)}
                           </p>
-                          {firstMember?.verified && (
+                          {!activeConvoGroup && firstMember?.verified && (
                             <CustomIcon
                               className='h-4 w-4 shrink-0'
                               iconName='TwitterVerifiedIcon'
@@ -2474,20 +2666,13 @@ export default function Messages(): JSX.Element {
                     />
                   ) : (
                     <>
-                      <div
-                        className='min-h-0 flex-1 overflow-y-auto overscroll-contain'
-                        onScroll={handleMessagesScroll}
-                      >
-                        <div className='flex min-h-full flex-col justify-end gap-2 px-6 py-6'>
-                          {messageCursor && (
-                            <Button
-                              className='accent-tab accent-bg-tab mx-auto px-4 py-2 text-sm font-bold text-white'
-                              loading={loadingMoreMessages}
-                              onClick={loadMoreMessages}
-                            >
-                              Show older
-                            </Button>
-                          )}
+                        <div
+                          ref={messagesScrollRef}
+                          className='min-h-0 flex-1 overflow-y-auto overscroll-contain'
+                          onScroll={handleMessagesScroll}
+                        >
+                          <div className='flex min-h-full flex-col justify-end gap-2 px-6 py-6'>
+                            {loadingMoreMessages && <Loading className='my-2' />}
                           {messages.map((message, index) => {
                             const isMine = message.senderId === user?.id;
                             const sender = activeConvo.members.find(
@@ -2632,48 +2817,58 @@ export default function Messages(): JSX.Element {
                           <div ref={messagesEndRef} />
                         </div>
                       </div>
-                      <form
-                        className='shrink-0 border-t border-light-border bg-main-background px-3 py-2 dark:border-dark-border
-                                   md:px-5 md:py-4'
-                        onSubmit={handleSubmit}
-                      >
-                        <div className='flex items-end gap-2 md:gap-3'>
-                          <IconButton
-                            iconName='TwitterMediaIcon'
-                            label='Add media'
-                          />
-                          <IconButton
-                            iconName='TwitterGifIcon'
-                            label='Add GIF'
-                          />
-                          <div
-                            className='flex min-h-[44px] min-w-0 flex-1 items-end rounded-[24px] bg-main-sidebar-background
-                                       px-4 md:min-h-[50px] md:rounded-[28px]'
-                          >
-                            <TextArea
-                              className='max-h-32 min-h-[42px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[17px]
-                                         leading-6 outline-none placeholder:text-light-secondary dark:placeholder:text-dark-secondary
-                                         md:min-h-[48px] md:py-3'
-                              maxRows={5}
-                              placeholder='Start your message'
-                              value={inputValue}
-                              aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
-                              onChange={handleInputChange}
-                              onKeyDown={handleMessageInputKeyDown}
+                        <form
+                          className='shrink-0 border-t border-light-border bg-main-background px-3 py-2.5 dark:border-dark-border
+                                     md:px-4 md:py-3'
+                          onSubmit={handleSubmit}
+                        >
+                          <div className='flex items-center gap-1.5 md:gap-2'>
+                            <IconButton
+                              className='p-2'
+                              disabled
+                              iconName='TwitterMediaIcon'
+                              label='Media attachments are unavailable in Bluesky messages'
                             />
                             <IconButton
-                              className='hidden xs:flex'
-                              iconName='TwitterEmojiIcon'
-                              label='Emoji'
+                              className='p-2'
+                              disabled
+                              iconName='TwitterGifIcon'
+                              label='GIF attachments are unavailable in Bluesky messages'
                             />
-                          </div>
-                          <Button
-                            className='flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-main-accent p-0 text-white
-                                       hover:bg-main-accent/90 active:bg-main-accent/75 disabled:bg-main-accent
-                                       disabled:opacity-50 md:h-auto md:w-auto md:bg-transparent md:p-2.5 md:text-main-accent
-                                       md:hover:bg-main-accent/10 md:active:bg-main-accent/20'
-                            disabled={!inputValue.trim()}
-                            loading={sending}
+                            <div
+                              className='flex min-h-[40px] min-w-0 flex-1 items-center rounded-[20px]
+                                         bg-main-sidebar-background px-3'
+                            >
+                              <TextArea
+                                className='max-h-28 min-h-[38px] min-w-0 flex-1 resize-none bg-transparent py-2 text-[15px]
+                                           leading-5 outline-none placeholder:text-light-secondary dark:placeholder:text-dark-secondary'
+                                maxRows={5}
+                                placeholder='Start a new message'
+                                value={inputValue}
+                                aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
+                                onChange={handleInputChange}
+                                onKeyDown={handleMessageInputKeyDown}
+                              />
+                              <span
+                                ref={emojiPickerAnchorRef}
+                                className='relative -mr-2 flex shrink-0'
+                              >
+                                <IconButton
+                                  className='p-2'
+                                  iconName='TwitterEmojiIcon'
+                                  label='Emoji'
+                                  onClick={(): void =>
+                                    setEmojiPickerOpen((open) => !open)
+                                  }
+                                />
+                              </span>
+                            </div>
+                            <Button
+                              className='dark-bg-tab flex h-10 w-10 shrink-0 items-center justify-center rounded-full
+                                         bg-transparent p-2 text-main-accent hover:bg-main-accent/10
+                                         active:bg-main-accent/20 disabled:bg-transparent disabled:opacity-40'
+                              disabled={!inputValue.trim() || sending}
+                              loading={sending}
                             title='Send'
                             type='submit'
                             aria-keyshortcuts={SUBMIT_KEYSHORTCUTS}
@@ -2682,9 +2877,21 @@ export default function Messages(): JSX.Element {
                               className='h-5 w-5'
                               iconName='TwitterSendIcon'
                             />
-                          </Button>
-                        </div>
-                      </form>
+                            </Button>
+                          </div>
+                          {emojiPickerOpen && (
+                            <TwitterComposePicker
+                              anchorElement={emojiPickerAnchorRef.current}
+                              placement='above'
+                              type='emoji'
+                              onClose={(): void => setEmojiPickerOpen(false)}
+                              onSelectEmoji={(emoji): void =>
+                                setInputValue((value) => `${value}${emoji}`)
+                              }
+                              onSelectGif={(): void => undefined}
+                            />
+                          )}
+                        </form>
                     </>
                   )}
                 </>
